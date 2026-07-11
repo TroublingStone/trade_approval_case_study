@@ -6,6 +6,22 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 
+[manifest]
+members = [
+    "trade-approval-api",
+    "trade-approval-core",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mypy", specifier = ">=1.13" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=6.0" },
+    { name = "ruff", specifier = ">=0.7" },
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -677,41 +693,28 @@ wheels = [
 ]
 
 [[package]]
-name = "trade-approval-case-study"
+name = "trade-approval-api"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "pydantic-settings" },
+    { name = "trade-approval-core" },
     { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pydantic-settings", specifier = ">=2.6" },
+    { name = "trade-approval-core", editable = "packages/core" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "mypy", specifier = ">=1.13" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
-    { name = "pytest-cov", specifier = ">=6.0" },
-    { name = "ruff", specifier = ">=0.7" },
-]
+[[package]]
+name = "trade-approval-core"
+version = "0.1.0"
+source = { editable = "packages/core" }
 
 [[package]]
 name = "typing-extensions"
