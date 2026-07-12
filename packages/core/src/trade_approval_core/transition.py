@@ -27,17 +27,14 @@ class RequesterOrApprover(Transition):
 
 
 @dataclass(frozen=True)
-class OriginalRequester(Transition):
-    def authorize(self, trade: "Trade", user: UserId) -> None:
-        if user != trade.requester:
-            raise UnauthorizedActionError(user, "must be the original requester")
+class NotMaker(Transition):
+    """Four-eyes gate: the maker of the pending content (the current submitter
+    or, after an update, the updater) cannot approve or amend their own work.
+    """
 
-
-@dataclass(frozen=True)
-class AnyoneButRequester(Transition):
     def authorize(self, trade: "Trade", user: UserId) -> None:
-        if user == trade.requester:
-            raise UnauthorizedActionError(user, "approver cannot be the submitter (four-eyes)")
+        if user == trade.maker:
+            raise UnauthorizedActionError(user, "the maker cannot approve their own changes (four-eyes)")
 
 
 @dataclass(frozen=True)

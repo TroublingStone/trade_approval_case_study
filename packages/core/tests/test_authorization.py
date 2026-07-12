@@ -31,9 +31,37 @@ def _unauthorized():
     return pytest.raises(UnauthorizedActionError)
 
 
+class TestMakerPivot:
+    """The maker is the author of the details currently awaiting approval, and
+    pivots from the submitter to the updater once an amendment is made.
+    """
+
+    def test_maker_is_submitter_before_any_update(self, build_trade, make_trade_details, user1):
+        trade = build_trade((Submitted, user1, {"details": make_trade_details()}))
+        assert trade.maker == user1
+
+    def test_maker_pivots_to_updater_after_update(
+        self, build_trade, make_trade_details, user1, user2
+    ):
+        trade = build_trade(
+            (Submitted, user1, {"details": make_trade_details()}),
+            (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
+        )
+        assert trade.maker == user2
+
+    def test_maker_unaffected_by_a_plain_approval(
+        self, build_trade, make_trade_details, user1, user2
+    ):
+        trade = build_trade(
+            (Submitted, user1, {"details": make_trade_details()}),
+            (Approved, user2, {}),
+        )
+        assert trade.maker == user1
+
+
 class TestApproveFromPendingApproval:
-    """(PendingApproval, Approve) uses AnyoneButRequester: anyone except the
-    original requester may approve -- there's no pre-assigned approver yet.
+    """(PendingApproval, Approve) uses NotMaker: anyone except the maker (here
+    the submitter, who is the sole author of the pending content) may approve.
     """
 
     def test_original_requester_cannot_approve_own_trade(
@@ -50,7 +78,9 @@ class TestApproveFromPendingApproval:
 
 
 class TestUpdateFromPendingApproval:
-    """(PendingApproval, Update) also uses AnyoneButRequester."""
+    """(PendingApproval, Update) also uses NotMaker: the maker (submitter)
+    can't amend their own pending submission -- that's a reviewer's action.
+    """
 
     def test_original_requester_cannot_update_own_trade(
         self, build_trade, make_trade_details, user1
@@ -66,8 +96,10 @@ class TestUpdateFromPendingApproval:
 
 
 class TestReapproval:
-    """(NeedsReapproval, Approve) uses OriginalRequester: only the user who
-    originally submitted may reapprove -- not just "not the requester".
+    """(NeedsReapproval, Approve) uses NotMaker against the pivoted maker: after
+    an update the maker is the *updater*, so anyone but the updater may
+    reapprove. In the 2-party case that's exactly the original requester; with a
+    third party present, they may reapprove too (four-eyes still holds).
     """
 
     def test_original_requester_can_reapprove(
@@ -90,15 +122,17 @@ class TestReapproval:
         with _unauthorized():
             trade.accept(user2)
 
-    def test_unrelated_third_party_cannot_reapprove(
+    def test_unrelated_third_party_can_reapprove(
         self, build_trade, make_trade_details, user1, user2, user3
     ):
+        # The maker after the update is user2; user3 is not the maker, so
+        # four-eyes permits them to reapprove.
         trade = build_trade(
             (Submitted, user1, {"details": make_trade_details()}),
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
         )
-        with _unauthorized():
-            trade.accept(user3)
+        trade.accept(user3)
+        assert trade.state == State.APPROVED
 
 
 class TestCancel:

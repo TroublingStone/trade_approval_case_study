@@ -13,9 +13,8 @@ from trade_approval_core.events import (
 )
 from trade_approval_core.trade import ALLOWED_TRANSITIONS, Trade
 from trade_approval_core.transition import (
-    AnyoneButRequester,
     ApproverOnly,
-    OriginalRequester,
+    NotMaker,
     RequesterOrApprover,
     Unrestricted,
 )
@@ -170,9 +169,8 @@ class TestValidTransitionsBeyondSubmit:
             return None
 
         for cls in (
-            AnyoneButRequester,
             ApproverOnly,
-            OriginalRequester,
+            NotMaker,
             RequesterOrApprover,
             Unrestricted,
         ):

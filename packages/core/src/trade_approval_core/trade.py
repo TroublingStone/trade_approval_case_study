@@ -25,9 +25,8 @@ from trade_approval_core.events import (
 )
 from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.transition import (
-    AnyoneButRequester,
     ApproverOnly,
-    OriginalRequester,
+    NotMaker,
     RequesterOrApprover,
     Transition,
     Unrestricted,
@@ -36,11 +35,9 @@ from trade_approval_core.types import TradeId, UserId
 
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
     (State.DRAFT,                Action.SUBMIT):          Unrestricted(State.PENDING_APPROVAL),
-    (State.PENDING_APPROVAL,     Action.APPROVE):         AnyoneButRequester(State.APPROVED),
-    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         OriginalRequester(State.APPROVED),
-    (State.PENDING_APPROVAL,     Action.UPDATE):          AnyoneButRequester(
-        State.NEEDS_REAPPROVAL
-    ),
+    (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(State.APPROVED),
+    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         NotMaker(State.APPROVED),
+    (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(State.NEEDS_REAPPROVAL),
     (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
     (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
     (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
@@ -83,6 +80,15 @@ class Trade:
         for e in self._events:
             if isinstance(e, (Approved, Updated)):
                 return e.user_id
+        return None
+
+    @property
+    def maker(self) -> UserId | None:
+        # Author of the details currently awaiting approval: the submitter, or
+        # the updater once an amendment has been made. Pivots on each Update.
+        for event in reversed(self._events):
+            if isinstance(event, (Submitted, Updated)):
+                return event.user_id
         return None
 
     @property
