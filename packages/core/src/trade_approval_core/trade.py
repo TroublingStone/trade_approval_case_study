@@ -27,6 +27,7 @@ from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.transition import (
     ApproverOnly,
     NotMaker,
+    RequesterOnly,
     RequesterOrApprover,
     Transition,
     Unrestricted,
@@ -36,7 +37,7 @@ from trade_approval_core.types import TradeId, UserId
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
     (State.DRAFT,                Action.SUBMIT):          Unrestricted(State.PENDING_APPROVAL),
     (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(State.APPROVED),
-    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         NotMaker(State.APPROVED),
+    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         RequesterOnly(State.APPROVED),
     (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(State.NEEDS_REAPPROVAL),
     (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
     (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),

@@ -27,6 +27,13 @@ class RequesterOrApprover(Transition):
 
 
 @dataclass(frozen=True)
+class RequesterOnly(Transition):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
+        if user != trade.requester:
+            raise UnauthorizedActionError(user, "must be the original requester")
+
+
+@dataclass(frozen=True)
 class NotMaker(Transition):
     """Four-eyes gate: the maker of the pending content (the current submitter
     or, after an update, the updater) cannot approve or amend their own work.

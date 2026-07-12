@@ -15,6 +15,7 @@ from trade_approval_core.trade import ALLOWED_TRANSITIONS, Trade
 from trade_approval_core.transition import (
     ApproverOnly,
     NotMaker,
+    RequesterOnly,
     RequesterOrApprover,
     Unrestricted,
 )
@@ -171,6 +172,7 @@ class TestValidTransitionsBeyondSubmit:
         for cls in (
             ApproverOnly,
             NotMaker,
+            RequesterOnly,
             RequesterOrApprover,
             Unrestricted,
         ):

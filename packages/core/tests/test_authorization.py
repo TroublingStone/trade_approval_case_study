@@ -96,10 +96,9 @@ class TestUpdateFromPendingApproval:
 
 
 class TestReapproval:
-    """(NeedsReapproval, Approve) uses NotMaker against the pivoted maker: after
-    an update the maker is the *updater*, so anyone but the updater may
-    reapprove. In the 2-party case that's exactly the original requester; with a
-    third party present, they may reapprove too (four-eyes still holds).
+    """(NeedsReapproval, Approve) uses RequesterOnly: the spec scopes reapproval
+    to the original requester specifically, not just "anyone but the maker" --
+    an unrelated third party is rejected even though they aren't the maker.
     """
 
     def test_original_requester_can_reapprove(
@@ -122,17 +121,17 @@ class TestReapproval:
         with _unauthorized():
             trade.accept(user2)
 
-    def test_unrelated_third_party_can_reapprove(
+    def test_unrelated_third_party_cannot_reapprove(
         self, build_trade, make_trade_details, user1, user2, user3
     ):
-        # The maker after the update is user2; user3 is not the maker, so
-        # four-eyes permits them to reapprove.
+        # user3 is not the maker (user2 is), but reapproval is scoped to the
+        # original requester specifically, so user3 is still rejected.
         trade = build_trade(
             (Submitted, user1, {"details": make_trade_details()}),
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
         )
-        trade.accept(user3)
-        assert trade.state == State.APPROVED
+        with _unauthorized():
+            trade.accept(user3)
 
 
 class TestCancel:
