@@ -56,11 +56,32 @@ class DuplicateUnderlyingCurrencyError(ValidationError):
 
 
 class NonPositiveStrikeRateError(ValidationError):
-    """Raised when the strike rate is not strictly positive."""
+    """Raised when a strike rate is not strictly positive.
+
+    Shared by TradeDetails.strike_rate and Booked.strike_rate -- there is one
+    strike rate concept in this domain, whether validated on the folded
+    details or on the event that supplies it.
+    """
 
     def __init__(self, strike_rate: Decimal) -> None:
         self.strike_rate = strike_rate
         super().__init__(f"strike rate must be positive, got {strike_rate}")
+
+
+class StrikeBeforeExecutionError(ValidationError):
+    """Raised when a strike rate is supplied before the trade is executed.
+
+    Per the spec the strike (agreed rate) only exists once the counterparty
+    executes the trade, so it is recorded via Book -- never provided at submit
+    or update time.
+    """
+
+    def __init__(self, strike_rate: Decimal) -> None:
+        self.strike_rate = strike_rate
+        super().__init__(
+            f"strike rate is assigned at booking and cannot be set before "
+            f"execution, got {strike_rate}"
+        )
 
 
 class NegativeEventSeqError(ValidationError):
@@ -84,14 +105,6 @@ class EmptyChangesError(ValidationError):
 
     def __init__(self) -> None:
         super().__init__("Updated event must record at least one changed field")
-
-
-class NonPositiveStrikeError(ValidationError):
-    """Raised when a Booked event's strike is not strictly positive."""
-
-    def __init__(self, strike: Decimal) -> None:
-        self.strike = strike
-        super().__init__(f"strike must be positive, got {strike}")
 
 
 class TradeNotFoundError(Exception):

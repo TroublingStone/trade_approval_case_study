@@ -103,8 +103,8 @@ class TestNotionalCurrencyMembership:
 
 
 class TestUnderlyingCurrencyPair:
-    """See plan finding #8: an FX forward's underlying must be two distinct
-    currencies -- a same-currency pair has no meaningful exchange rate.
+    """An FX forward's underlying must be two distinct currencies -- a
+    same-currency pair has no meaningful exchange rate.
     """
 
     def test_duplicate_currency_pair_is_rejected(self, make_trade_details):
@@ -124,6 +124,15 @@ class TestUnderlyingCurrencyPair:
 
 
 class TestStrikeRate:
+    def test_unset_strike_is_valid(self, make_trade_details):
+        # A submitted forward has no strike yet; it is folded in at booking.
+        assert make_trade_details().strike_rate is None
+
+    def test_positive_strike_is_valid(self, make_trade_details):
+        # A positive strike is allowed on the type itself -- that's how booked
+        # details are represented after Book folds the executed rate in.
+        assert make_trade_details(strike_rate=Decimal("1.10")).strike_rate == Decimal("1.10")
+
     def test_zero_is_rejected(self, make_trade_details):
         with pytest.raises(NonPositiveStrikeRateError) as exc_info:
             make_trade_details(strike_rate=Decimal(0))

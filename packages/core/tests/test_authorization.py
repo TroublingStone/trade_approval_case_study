@@ -215,11 +215,8 @@ class TestBook:
 
 
 class TestSendToExecute:
-    """(Approved, SendToExecute): per plan finding #5, the doc says this
-    should be approver-only, not RequesterOrApprover as currently coded --
-    these tests assert the *intended* (doc-correct) behavior.
-    test_requester_cannot_send_to_execute will fail until ALLOWED_TRANSITIONS'
-    SendToExecute entry is switched to an approver-only transition.
+    """(Approved, SendToExecute) uses ApproverOnly per the doc: only the
+    approver may send an approved trade to the counterparty.
     """
 
     def test_approver_can_send_to_execute(

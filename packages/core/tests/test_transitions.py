@@ -72,7 +72,7 @@ def trade_in_state(fake_clock, user1, make_trade_details):
                 seq=0, user_id=user1, timestamp=ts
             ),
             State.EXECUTED: lambda ts: Booked(
-                seq=0, user_id=user1, timestamp=ts, strike=Decimal("1.25"), confirmation="CONF-0"
+                seq=0, user_id=user1, timestamp=ts, strike_rate=Decimal("1.25"), confirmation="CONF-0"
             ),
         }
         trade._events.append(factories[state](fake_clock()))
@@ -115,7 +115,7 @@ class TestBook:
         trade.book(user1, Decimal("1.30"), confirmation="CONF-123")
 
         booked = trade._events[-1]
-        assert booked.strike == Decimal("1.30")
+        assert booked.strike_rate == Decimal("1.30")
         assert booked.confirmation == "CONF-123"
 
     def test_confirmation_is_required(self, fake_clock, user1, user2, make_trade_details):
@@ -133,9 +133,10 @@ class TestInvalidTransitions:
     Covers both terminal states (Executed, Cancelled x all 6 actions) and
     Draft x every action except Submit, as a byproduct of the full matrix.
 
-    Not blocked by plan finding #1: Trade._lookup() checks the (state, action)
-    pair and raises InvalidTransitionError *before* transition.authorize() is
-    ever called, so these never touch the missing requester/approver code.
+    Trade._lookup() checks the (state, action) pair and raises
+    InvalidTransitionError before transition.authorize() is ever called, so
+    these cases never reach the authorization rules -- that's
+    test_authorization.py's concern, not this file's.
     """
 
     @pytest.mark.parametrize(

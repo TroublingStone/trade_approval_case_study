@@ -24,7 +24,9 @@ class TradeDetails:
     trade_date: date
     value_date: date
     delivery_date: date
-    strike_rate: Decimal
+    # The agreed rate is only known once the counterparty executes the trade;
+    # it stays None until Book folds it in. See Trade.book / Trade._fold.
+    strike_rate: Decimal | None = None
 
     def __post_init__(self) -> None:
         self._validate()
@@ -38,5 +40,5 @@ class TradeDetails:
             raise DuplicateUnderlyingCurrencyError(self.underlying)
         if self.notional_currency not in self.underlying:
             raise NotionalCurrencyMismatchError(self.notional_currency, self.underlying)
-        if self.strike_rate <= 0:
+        if self.strike_rate is not None and self.strike_rate <= 0:
             raise NonPositiveStrikeRateError(self.strike_rate)

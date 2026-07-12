@@ -12,7 +12,7 @@ from .errors import (
     EmptyChangesError,
     NaiveEventTimestampError,
     NegativeEventSeqError,
-    NonPositiveStrikeError,
+    NonPositiveStrikeRateError,
 )
 from .trade_details import TradeDetails
 from .types import UserId
@@ -89,7 +89,7 @@ class SentToExecute(Event):
 @dataclass(frozen=True, kw_only=True)
 class Booked(Event):
     action = "Book"
-    strike: Decimal
+    strike_rate: Decimal
     confirmation: str
 
     def __post_init__(self) -> None:
@@ -97,8 +97,8 @@ class Booked(Event):
 
     def _validate(self) -> None:
         super()._validate()
-        if self.strike <= 0:
-            raise NonPositiveStrikeError(self.strike)
+        if self.strike_rate <= 0:
+            raise NonPositiveStrikeRateError(self.strike_rate)
 
 
 @dataclass(frozen=True, kw_only=True)

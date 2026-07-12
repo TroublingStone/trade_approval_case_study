@@ -11,6 +11,7 @@ from trade_approval_core.errors import (
     InvalidSeqError,
     InvalidTransitionError,
     MissingTradeDetailsError,
+    StrikeBeforeExecutionError,
     ValidationError,
 )
 from trade_approval_core.events import (
@@ -120,7 +121,7 @@ class Trade:
             elif isinstance(event, Updated):
                 result = replace(self._require_details(result), **event.changes)
             elif isinstance(event, Booked):
-                result = replace(self._require_details(result), strike_rate=event.strike)
+                result = replace(self._require_details(result), strike_rate=event.strike_rate)
         return result
 
     def _require_details(self, result: TradeDetails | None) -> TradeDetails:
@@ -131,6 +132,7 @@ class Trade:
     def submit(self, user: UserId, trade_details: TradeDetails) -> None:
         transition = self._lookup(self.state, Action.SUBMIT)
         transition.authorize(self, user)
+        self._reject_premature_strike(trade_details)
         event = Submitted(
             seq=len(self._events),
             user_id=user,
@@ -169,14 +171,14 @@ class Trade:
         )
         self._events.append(event)
 
-    def book(self, user: UserId, strike: Decimal, confirmation: str) -> None:
+    def book(self, user: UserId, strike_rate: Decimal, confirmation: str) -> None:
         transition = self._lookup(self.state, Action.BOOK)
         transition.authorize(self, user)
         event = Booked(
             seq=len(self._events),
             user_id=user,
             timestamp=self._clock(),
-            strike=strike,
+            strike_rate=strike_rate,
             confirmation=confirmation,
         )
         self._events.append(event)
@@ -184,6 +186,7 @@ class Trade:
     def update(self, user: UserId, new_details: TradeDetails) -> None:
         transition = self._lookup(self.state, Action.UPDATE)
         transition.authorize(self, user)
+        self._reject_premature_strike(new_details)
 
         details = self._retrieve_and_validate_details()
         changes = self._diff_details(details, new_details)
@@ -218,6 +221,13 @@ class Trade:
         if details is None:
             raise MissingTradeDetailsError(self.id)
         return details
+
+    @staticmethod
+    def _reject_premature_strike(details: TradeDetails) -> None:
+        # The strike is an execution outcome recorded by Book, not something a
+        # requester or updater may supply. Enforced for both submit and update.
+        if details.strike_rate is not None:
+            raise StrikeBeforeExecutionError(details.strike_rate)
 
     @staticmethod
     def _diff_details(old: TradeDetails, new: TradeDetails) -> dict[str, Any]:

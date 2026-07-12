@@ -54,9 +54,8 @@ class TestHistory:
 
 
 class TestDetailsAtPreviousState:
-    """Doc requirement #4: 'trade details at any previous state.' No public
-    time-travel API exists yet -- Trade.details only exposes the latest
-    folded value. Blocked on plan finding #4.
+    """Doc requirement #4: 'trade details at any previous state,' exposed via
+    Trade.details_as_of(seq).
     """
 
     def test_details_before_an_update(self, fake_clock, make_trade_details, user1, user2):
@@ -81,8 +80,7 @@ class TestDetailsAtPreviousState:
 
 class TestDiff:
     """Doc requirement #4: 'differences between two versions of trade details,'
-    e.g. {"notionalAmount": ("1,000,000", "1,200,000")}. No public diff API
-    exists yet. Blocked on plan finding #4.
+    e.g. {"notionalAmount": ("1,000,000", "1,200,000")}, exposed via Trade.diff().
     """
 
     def test_diff_between_two_versions_returns_old_and_new(

@@ -33,7 +33,6 @@ def make_trade_details() -> Callable[..., TradeDetails]:
             trade_date=date(2026, 1, 1),
             value_date=date(2026, 1, 2),
             delivery_date=date(2026, 1, 3),
-            strike_rate=Decimal("1.10"),
         )
         defaults.update(overrides)
         return TradeDetails(**defaults)
