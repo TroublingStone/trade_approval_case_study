@@ -52,7 +52,7 @@ class Event:
 @dataclass(frozen=True, kw_only=True)
 class Submitted(Event):
     action = "Submit"
-    request: TradeDetails
+    details: TradeDetails
 
 
 @dataclass(frozen=True, kw_only=True)

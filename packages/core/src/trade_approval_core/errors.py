@@ -1,12 +1,15 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from .enums import Currency
-from .types import TradeId
+from .enums import Action, Currency, State
+from .types import TradeId, UserId
 
 
 class ValidationError(Exception):
     """Base class for all domain validation errors."""
+
+class TradeError(Exception):
+    """Base class for every domain error raised by the library."""
 
 
 class InvalidDateOrderError(ValidationError):
@@ -87,3 +90,36 @@ class TradeNotFoundError(Exception):
     def __init__(self, trade_id: TradeId) -> None:
         self.trade_id = trade_id
         super().__init__(f"no trade found for id {trade_id}")
+
+
+class InvalidTransitionError(TradeError):
+    """Raised when an action is attempted from a state that doesn't allow it."""
+
+    def __init__(self, state: State, action: Action) -> None:
+        self.state = state
+        self.action = action
+        super().__init__(f"cannot {action.value} a trade in state {state}")
+
+
+class MissingTradeDetailsError(Exception):
+    """Raised when a trade's details are accessed before it has been submitted."""
+
+    def __init__(self, trade_id: TradeId) -> None:
+        self.trade_id = trade_id
+        super().__init__(f"trade {trade_id} has no details (not yet submitted)")
+
+class UnauthorizedActionError(TradeError):
+    """The action is valid from the current state, but this user may not do it.
+ 
+    Carries the offending ``user_id`` and a short ``reason`` describing the rule
+    that was violated (e.g. "must be the original requester", "approver cannot
+    be the submitter (four-eyes)"). The ``reason`` is deliberately generic about
+    *who* is allowed -- it names the rule, not the permitted user ids, so the
+    error doesn't leak the trade's participants to an unauthorized caller.
+    """
+ 
+    def __init__(self, user_id: "UserId", reason: str) -> None:
+        self.user_id = user_id
+        self.reason = reason
+        super().__init__(f"user {user_id!r} is not authorized: {reason}")
+ 
