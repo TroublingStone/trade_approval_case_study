@@ -10,6 +10,7 @@ from typing import Any, ClassVar
 from .enums import State
 from .errors import (
     EmptyChangesError,
+    EmptyConfirmationError,
     NaiveEventTimestampError,
     NegativeEventSeqError,
     NonPositiveStrikeRateError,
@@ -99,6 +100,8 @@ class Booked(Event):
         super()._validate()
         if self.strike_rate <= 0:
             raise NonPositiveStrikeRateError(self.strike_rate)
+        if not self.confirmation.strip():
+            raise EmptyConfirmationError()
 
 
 @dataclass(frozen=True, kw_only=True)

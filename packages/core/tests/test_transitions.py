@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 from trade_approval_core.enums import Action, State
-from trade_approval_core.errors import InvalidTransitionError
+from trade_approval_core.errors import EmptyConfirmationError, InvalidTransitionError
 from trade_approval_core.events import (
     Approved,
     Booked,
@@ -126,6 +126,18 @@ class TestBook:
 
         with pytest.raises(TypeError):
             trade.book(user1, Decimal("1.30"))
+
+    @pytest.mark.parametrize("confirmation", ["", "   "])
+    def test_empty_confirmation_is_rejected(
+        self, fake_clock, user1, user2, make_trade_details, confirmation
+    ):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.accept(user2)
+        trade.send_to_execute(user2)
+
+        with pytest.raises(EmptyConfirmationError):
+            trade.book(user1, Decimal("1.30"), confirmation=confirmation)
 
 
 class TestInvalidTransitions:

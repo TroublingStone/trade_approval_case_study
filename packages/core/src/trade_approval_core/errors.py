@@ -107,6 +107,13 @@ class EmptyChangesError(ValidationError):
         super().__init__("Updated event must record at least one changed field")
 
 
+class EmptyConfirmationError(ValidationError):
+    """Raised when a Booked event's confirmation reference is empty."""
+
+    def __init__(self) -> None:
+        super().__init__("Booked event must record a non-empty confirmation reference")
+
+
 class TradeNotFoundError(Exception):
     """Raised when no trade exists for a given id."""
 
