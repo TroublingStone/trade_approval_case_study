@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from trade_approval_core.enums import Currency
+from trade_approval_core.enums import Currency, Direction
 from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.types import UserId
 
@@ -26,6 +26,7 @@ def make_trade_details() -> Callable[..., TradeDetails]:
         defaults = dict(
             trading_entity="Acme Corp",
             counterparty="Beta Bank",
+            direction=Direction.BUY,
             notional_currency=Currency.USD,
             notional_amount=Decimal("1000000"),
             underlying=(Currency.USD, Currency.EUR),

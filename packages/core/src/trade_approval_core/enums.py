@@ -27,3 +27,12 @@ class Action(StrEnum):
     CANCEL = "Cancel"
     SEND_TO_EXECUTE = "SendToExecute"
     BOOK = "Book"
+
+
+class Direction(StrEnum):
+    BUY = "Buy"
+    SELL = "Sell"
+
+
+class Style(StrEnum):
+    FORWARD = "Forward"

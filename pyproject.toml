@@ -9,6 +9,7 @@ dev = [
     "httpx>=0.27",
     "ruff>=0.7",
     "mypy>=1.13",
+    "pre-commit>=4.0",
 ]
 
 [tool.pytest.ini_options]
@@ -17,11 +18,11 @@ addopts = "-ra --import-mode=importlib --cov=trade_approval_core --cov=trade_app
 asyncio_mode = "auto"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "W", "F", "I", "UP", "B", "N"]
 
 [tool.mypy]
 python_version = "3.12"

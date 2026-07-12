@@ -45,6 +45,16 @@ class NotionalCurrencyMismatchError(ValidationError):
         )
 
 
+class DuplicateUnderlyingCurrencyError(ValidationError):
+    """Raised when both currencies in the underlying pair are the same."""
+
+    def __init__(self, underlying: tuple[Currency, Currency]) -> None:
+        self.underlying = underlying
+        super().__init__(
+            f"underlying currencies must be distinct, got {underlying}"
+        )
+
+
 class NonPositiveStrikeRateError(ValidationError):
     """Raised when the strike rate is not strictly positive."""
 
@@ -108,18 +118,34 @@ class MissingTradeDetailsError(Exception):
         self.trade_id = trade_id
         super().__init__(f"trade {trade_id} has no details (not yet submitted)")
 
+
+class CorruptEventLogError(TradeError):
+    """Raised when Updated/Booked is folded before any Submitted event."""
+
+    def __init__(self, trade_id: TradeId) -> None:
+        self.trade_id = trade_id
+        super().__init__(f"trade {trade_id} has Updated/Booked before any Submitted event")
+
+class InvalidSeqError(TradeError):
+    """Raised when a seq passed to details_as_of()/diff() has no matching event."""
+
+    def __init__(self, trade_id: TradeId, seq: int) -> None:
+        self.trade_id = trade_id
+        self.seq = seq
+        super().__init__(f"trade {trade_id} has no event with seq {seq}")
+
+
 class UnauthorizedActionError(TradeError):
     """The action is valid from the current state, but this user may not do it.
- 
+
     Carries the offending ``user_id`` and a short ``reason`` describing the rule
     that was violated (e.g. "must be the original requester", "approver cannot
     be the submitter (four-eyes)"). The ``reason`` is deliberately generic about
     *who* is allowed -- it names the rule, not the permitted user ids, so the
     error doesn't leak the trade's participants to an unauthorized caller.
     """
- 
+
     def __init__(self, user_id: "UserId", reason: str) -> None:
         self.user_id = user_id
         self.reason = reason
         super().__init__(f"user {user_id!r} is not authorized: {reason}")
- 

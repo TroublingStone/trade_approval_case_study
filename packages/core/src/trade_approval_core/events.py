@@ -90,7 +90,7 @@ class SentToExecute(Event):
 class Booked(Event):
     action = "Book"
     strike: Decimal
-    confirmation: str | None = None
+    confirmation: str
 
     def __post_init__(self) -> None:
         self._validate()

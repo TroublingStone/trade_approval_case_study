@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import fields, replace
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from trade_approval_core.enums import Action, State
 from trade_approval_core.errors import (
+    CorruptEventLogError,
+    InvalidSeqError,
     InvalidTransitionError,
     MissingTradeDetailsError,
     ValidationError,
@@ -23,7 +25,8 @@ from trade_approval_core.events import (
 )
 from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.transition import (
-    ApproverNotRequester,
+    AnyoneButRequester,
+    ApproverOnly,
     OriginalRequester,
     RequesterOrApprover,
     Transition,
@@ -33,15 +36,15 @@ from trade_approval_core.types import TradeId, UserId
 
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
     (State.DRAFT,                Action.SUBMIT):          Unrestricted(State.PENDING_APPROVAL),
-    (State.PENDING_APPROVAL,     Action.APPROVE):         ApproverNotRequester(State.APPROVED),
+    (State.PENDING_APPROVAL,     Action.APPROVE):         AnyoneButRequester(State.APPROVED),
     (State.NEEDS_REAPPROVAL,     Action.APPROVE):         OriginalRequester(State.APPROVED),
-    (State.PENDING_APPROVAL,     Action.UPDATE):          ApproverNotRequester(
+    (State.PENDING_APPROVAL,     Action.UPDATE):          AnyoneButRequester(
         State.NEEDS_REAPPROVAL
     ),
     (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
     (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
     (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
-    (State.APPROVED,             Action.SEND_TO_EXECUTE): RequesterOrApprover(
+    (State.APPROVED,             Action.SEND_TO_EXECUTE): ApproverOnly(
         State.SENT_TO_COUNTERPARTY
     ),
     (State.SENT_TO_COUNTERPARTY, Action.BOOK):            RequesterOrApprover(State.EXECUTED),
@@ -74,7 +77,7 @@ class Trade:
     @property
     def requester(self) -> UserId | None:
         return self._events[0].user_id if self._events else None
-    
+
     @property
     def approver(self) -> UserId | None:
         for e in self._events:
@@ -84,14 +87,38 @@ class Trade:
 
     @property
     def details(self) -> TradeDetails | None:
+        return self._fold(self._events)
+
+    def details_as_of(self, seq: int) -> TradeDetails:
+        if not (0 <= seq < len(self._events)):
+            raise InvalidSeqError(self.id, seq)
+        details = self._fold(event for event in self._events if event.seq <= seq)
+        if details is None:
+            raise MissingTradeDetailsError(self.id)
+        return details
+
+    def diff(self, seq_a: int, seq_b: int) -> dict[str, tuple[Any, Any]]:
+        old = self.details_as_of(seq_a)
+        new = self.details_as_of(seq_b)
+        return {
+            name: (old_value, new_value)
+            for name, old_value, new_value in self._changed_fields(old, new)
+        }
+
+    def _fold(self, events: Iterable[Event]) -> TradeDetails | None:
         result: TradeDetails | None = None
-        for event in self._events:
+        for event in events:
             if isinstance(event, Submitted):
                 result = event.details
             elif isinstance(event, Updated):
-                result = replace(result, **event.changes)
+                result = replace(self._require_details(result), **event.changes)
             elif isinstance(event, Booked):
-                result = replace(result, strike=event.strike)
+                result = replace(self._require_details(result), strike_rate=event.strike)
+        return result
+
+    def _require_details(self, result: TradeDetails | None) -> TradeDetails:
+        if result is None:
+            raise CorruptEventLogError(self.id)
         return result
 
     def submit(self, user: UserId, trade_details: TradeDetails) -> None:
@@ -135,7 +162,7 @@ class Trade:
         )
         self._events.append(event)
 
-    def book(self, user: UserId, strike: Decimal) -> None:
+    def book(self, user: UserId, strike: Decimal, confirmation: str) -> None:
         transition = self._lookup(self.state, Action.BOOK)
         transition.authorize(self, user)
         event = Booked(
@@ -143,6 +170,7 @@ class Trade:
             user_id=user,
             timestamp=self._clock(),
             strike=strike,
+            confirmation=confirmation,
         )
         self._events.append(event)
 
@@ -154,7 +182,7 @@ class Trade:
         changes = self._diff_details(details, new_details)
         if not changes:
             raise ValidationError("update must change at least one field")
-    
+
         self._events.append(Updated(
             seq=len(self._events),
             user_id=user,
@@ -186,15 +214,22 @@ class Trade:
 
     @staticmethod
     def _diff_details(old: TradeDetails, new: TradeDetails) -> dict[str, Any]:
-        return {f.name: getattr(new, f.name)
-                for f in fields(TradeDetails)
-                if getattr(old, f.name) != getattr(new, f.name)}
+        return {
+            name: new_value for name, _, new_value in Trade._changed_fields(old, new)
+        }
+
+    @staticmethod
+    def _changed_fields(
+        old: TradeDetails, new: TradeDetails
+    ) -> Iterator[tuple[str, Any, Any]]:
+        for f in fields(TradeDetails):
+            old_value = getattr(old, f.name)
+            new_value = getattr(new, f.name)
+            if old_value != new_value:
+                yield f.name, old_value, new_value
 
     def _lookup(self, current_state: State, action: Action) -> Transition:
         transition = ALLOWED_TRANSITIONS.get((current_state, action))
         if transition is None:
             raise InvalidTransitionError(current_state, action)
         return transition
-
-    
-        

@@ -21,26 +21,33 @@ class Transition(ABC):
 
 @dataclass(frozen=True)
 class RequesterOrApprover(Transition):
-    def authorize(self, trade, user):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
         if user not in (trade.requester, trade.approver):
             raise UnauthorizedActionError(user, "must be the requester or approver")
 
 
 @dataclass(frozen=True)
 class OriginalRequester(Transition):
-    def authorize(self, trade, user):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
         if user != trade.requester:
             raise UnauthorizedActionError(user, "must be the original requester")
 
 
 @dataclass(frozen=True)
-class ApproverNotRequester(Transition):
-    def authorize(self, trade, user):
+class AnyoneButRequester(Transition):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
         if user == trade.requester:
             raise UnauthorizedActionError(user, "approver cannot be the submitter (four-eyes)")
 
 
 @dataclass(frozen=True)
+class ApproverOnly(Transition):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
+        if user != trade.approver:
+            raise UnauthorizedActionError(user, "must be the approver")
+
+
+@dataclass(frozen=True)
 class Unrestricted(Transition):
-    def authorize(self, trade, user):
+    def authorize(self, trade: "Trade", user: UserId) -> None:
         return None

@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-
 from trade_approval_core import TradeApprovalResult, evaluate_trade
 
 app = FastAPI(title="Trade Approval API")

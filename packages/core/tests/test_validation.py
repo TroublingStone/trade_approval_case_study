@@ -2,8 +2,9 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from trade_approval_core.enums import Currency
+from trade_approval_core.enums import Currency, Direction, Style
 from trade_approval_core.errors import (
+    DuplicateUnderlyingCurrencyError,
     InvalidDateOrderError,
     NonPositiveNotionalAmountError,
     NonPositiveStrikeRateError,
@@ -107,12 +108,11 @@ class TestUnderlyingCurrencyPair:
     """
 
     def test_duplicate_currency_pair_is_rejected(self, make_trade_details):
-        from trade_approval_core.errors import DuplicateUnderlyingCurrencyError
-
-        with pytest.raises(DuplicateUnderlyingCurrencyError):
+        with pytest.raises(DuplicateUnderlyingCurrencyError) as exc_info:
             make_trade_details(
                 notional_currency=Currency.USD, underlying=(Currency.USD, Currency.USD)
             )
+        assert exc_info.value.underlying == (Currency.USD, Currency.USD)
 
     def test_distinct_pair_is_valid_regardless_of_order(self, make_trade_details):
         make_trade_details(
@@ -149,3 +149,12 @@ def test_first_failing_check_wins(make_trade_details):
 def test_invalid_currency_code_rejected_by_enum():
     with pytest.raises(ValueError):
         Currency("XXX")
+
+
+class TestDirectionAndStyle:
+    def test_buy_and_sell_are_both_valid(self, make_trade_details):
+        assert make_trade_details(direction=Direction.BUY).direction == Direction.BUY
+        assert make_trade_details(direction=Direction.SELL).direction == Direction.SELL
+
+    def test_style_defaults_to_forward(self, make_trade_details):
+        assert make_trade_details().style == Style.FORWARD

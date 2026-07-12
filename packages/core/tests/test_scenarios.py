@@ -61,7 +61,7 @@ class TestScenario3Execution:
         trade.send_to_execute(user2)
         assert trade.state == State.SENT_TO_COUNTERPARTY
 
-        trade.book(user1, Decimal("1.30"))
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
         assert trade.state == State.EXECUTED
 
     def test_details_reflect_booked_strike(self, fake_clock, make_trade_details, user1, user2):
@@ -69,7 +69,7 @@ class TestScenario3Execution:
         trade.submit(user1, make_trade_details())
         trade.accept(user2)
         trade.send_to_execute(user2)
-        trade.book(user1, Decimal("1.30"))
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 
         assert trade.details.strike_rate == Decimal("1.30")
 

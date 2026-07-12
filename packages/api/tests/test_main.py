@@ -1,5 +1,4 @@
 from httpx import ASGITransport, AsyncClient
-
 from trade_approval_api.main import app
 
 

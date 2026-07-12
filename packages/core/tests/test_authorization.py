@@ -32,7 +32,7 @@ def _unauthorized():
 
 
 class TestApproveFromPendingApproval:
-    """(PendingApproval, Approve) uses ApproverNotRequester: anyone except the
+    """(PendingApproval, Approve) uses AnyoneButRequester: anyone except the
     original requester may approve -- there's no pre-assigned approver yet.
     """
 
@@ -50,7 +50,7 @@ class TestApproveFromPendingApproval:
 
 
 class TestUpdateFromPendingApproval:
-    """(PendingApproval, Update) also uses ApproverNotRequester."""
+    """(PendingApproval, Update) also uses AnyoneButRequester."""
 
     def test_original_requester_cannot_update_own_trade(
         self, build_trade, make_trade_details, user1
@@ -166,7 +166,7 @@ class TestBook:
             (Approved, user2, {}),
             (SentToExecute, user2, {}),
         )
-        trade.book(user1 if actor == "requester" else user2, Decimal("1.25"))
+        trade.book(user1 if actor == "requester" else user2, Decimal("1.25"), confirmation="CONF-1")
         assert trade.state == State.EXECUTED
 
     def test_unrelated_third_party_cannot_book(
@@ -178,7 +178,7 @@ class TestBook:
             (SentToExecute, user2, {}),
         )
         with _unauthorized():
-            trade.book(user3, Decimal("1.25"))
+            trade.book(user3, Decimal("1.25"), confirmation="CONF-1")
 
 
 class TestSendToExecute:

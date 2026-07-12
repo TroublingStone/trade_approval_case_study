@@ -74,7 +74,7 @@ class TestDetailsAtPreviousState:
         trade.submit(user1, make_trade_details())
         trade.accept(user2)
         trade.send_to_execute(user2)
-        trade.book(user1, Decimal("1.30"))
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 
         assert trade.details_as_of(3).strike_rate == Decimal("1.30")
 

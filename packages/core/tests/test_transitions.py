@@ -13,7 +13,8 @@ from trade_approval_core.events import (
 )
 from trade_approval_core.trade import ALLOWED_TRANSITIONS, Trade
 from trade_approval_core.transition import (
-    ApproverNotRequester,
+    AnyoneButRequester,
+    ApproverOnly,
     OriginalRequester,
     RequesterOrApprover,
     Unrestricted,
@@ -40,7 +41,7 @@ def _invoke(trade: Trade, action: Action, user, make_trade_details) -> None:
     elif action is Action.SEND_TO_EXECUTE:
         trade.send_to_execute(user)
     elif action is Action.BOOK:
-        trade.book(user, Decimal("1.25"))
+        trade.book(user, Decimal("1.25"), confirmation="CONF-000")
 
 
 @pytest.fixture
@@ -71,7 +72,7 @@ def trade_in_state(fake_clock, user1, make_trade_details):
                 seq=0, user_id=user1, timestamp=ts
             ),
             State.EXECUTED: lambda ts: Booked(
-                seq=0, user_id=user1, timestamp=ts, strike=Decimal("1.25")
+                seq=0, user_id=user1, timestamp=ts, strike=Decimal("1.25"), confirmation="CONF-0"
             ),
         }
         trade._events.append(factories[state](fake_clock()))
@@ -102,6 +103,29 @@ class TestSubmit:
         assert event.user_id == user1
         assert event.details == details
         assert event.timestamp.tzinfo is not None
+
+
+class TestBook:
+    def test_records_strike_and_confirmation(self, fake_clock, user1, user2, make_trade_details):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.accept(user2)
+        trade.send_to_execute(user2)
+
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-123")
+
+        booked = trade._events[-1]
+        assert booked.strike == Decimal("1.30")
+        assert booked.confirmation == "CONF-123"
+
+    def test_confirmation_is_required(self, fake_clock, user1, user2, make_trade_details):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.accept(user2)
+        trade.send_to_execute(user2)
+
+        with pytest.raises(TypeError):
+            trade.book(user1, Decimal("1.30"))
 
 
 class TestInvalidTransitions:
@@ -145,7 +169,13 @@ class TestValidTransitionsBeyondSubmit:
         def _noop(self, trade, user):
             return None
 
-        for cls in (ApproverNotRequester, OriginalRequester, RequesterOrApprover, Unrestricted):
+        for cls in (
+            AnyoneButRequester,
+            ApproverOnly,
+            OriginalRequester,
+            RequesterOrApprover,
+            Unrestricted,
+        ):
             monkeypatch.setattr(cls, "authorize", _noop)
 
     @pytest.mark.parametrize(
