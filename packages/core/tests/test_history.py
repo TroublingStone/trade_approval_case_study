@@ -24,7 +24,7 @@ class TestHistory:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
 
         history = trade.history()
@@ -68,12 +68,24 @@ class TestDetailsAtPreviousState:
 
         assert trade.details_as_of(0) == original
 
+    def test_details_unchanged_by_approve_and_send(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        original = make_trade_details()
+        trade.submit(user1, original)
+        trade.approve(user2)
+        trade.send_to_execute(user2)
+
+        assert trade.details_as_of(1) == original
+        assert trade.details_as_of(2) == original
+
     def test_details_after_a_book_folds_in_the_strike(
         self, fake_clock, make_trade_details, user1, user2
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 
@@ -97,7 +109,7 @@ class TestInvalidSeq:
 
     def test_seq_past_last_event_is_rejected(self, fake_clock, make_trade_details, user1):
         trade = Trade(clock=fake_clock)
-        trade.submit(user1, make_trade_details())  # only seq 0 exists
+        trade.submit(user1, make_trade_details())
 
         with pytest.raises(InvalidSeqError) as exc_info:
             trade.details_as_of(1)
@@ -113,7 +125,10 @@ class TestInvalidSeq:
 
 class TestDiff:
     """Doc requirement #4: 'differences between two versions of trade details,'
-    e.g. {"notionalAmount": ("1,000,000", "1,200,000")}, exposed via Trade.diff().
+    exposed via Trade.diff(). Keys are snake_case TradeDetails field names and
+    values are raw (unformatted) field values, deviating from the doc's
+    illustrative {"notionalAmount": ("1,000,000", "1,200,000")} -- see
+    Spec_Interpretations.md item 8.
     """
 
     def test_diff_between_two_versions_returns_old_and_new(
@@ -134,3 +149,39 @@ class TestDiff:
         trade.submit(user1, make_trade_details())
 
         assert trade.diff(0, 0) == {}
+
+    def test_diff_across_non_adjacent_versions(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        original = make_trade_details()
+        trade.submit(user1, original)
+        trade.update(user2, make_trade_details(notional_amount=Decimal("1200000")))
+        trade.approve(user1)
+
+        assert trade.diff(0, 2) == {
+            "notional_amount": (original.notional_amount, Decimal("1200000"))
+        }
+
+    def test_diff_spanning_a_book_reports_the_strike(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.approve(user2)
+        trade.send_to_execute(user2)
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
+
+        assert trade.diff(2, 3) == {"strike_rate": (None, Decimal("1.30"))}
+
+    def test_reversed_range_swaps_old_and_new(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        original = make_trade_details()
+        trade.submit(user1, original)
+        trade.update(user2, make_trade_details(notional_amount=Decimal("1200000")))
+
+        assert trade.diff(1, 0) == {
+            "notional_amount": (Decimal("1200000"), original.notional_amount)
+        }

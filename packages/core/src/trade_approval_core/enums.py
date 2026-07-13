@@ -2,14 +2,23 @@ from enum import StrEnum
 
 
 class Currency(StrEnum):
-    """All active ISO 4217 alphabetic currency codes.
+    """Eligible notional currencies: active ISO 4217 national currency codes.
 
     Vendored from https://github.com/datasets/currency-codes (mirrors the ISO
-    4217 maintenance agency's published list) as of 2026-07-12, filtered to
-    codes with no WithdrawalDate. Excludes XTS and XXX: those two codes are
-    reserved by the standard itself for "testing purposes" and "no currency
-    involved" respectively, so they are not real notional currencies a trade
-    could be denominated in.
+    4217 maintenance agency's published list) as of 2026-07-13, filtered to
+    codes with no WithdrawalDate. The spec points at the IBAN Currency Codes
+    list (country currencies), so codes that are not money a trade could be
+    denominated in are excluded:
+
+    - XTS / XXX: reserved by the standard for "testing purposes" and "no
+      currency involved".
+    - Funds codes (BOV, CHE, CHW, CLF, COU, MXV, USN, UYI, UYW): accounting
+      variants of a national currency, not currencies themselves.
+    - Precious metals (XAU, XAG, XPD, XPT) and bond-market units (XBA, XBB,
+      XBC, XBD).
+    - Supranational accounting units (XAD, XDR, XSU, XUA).
+
+    See Spec_Interpretations.md for the reasoning.
     """
 
     AED = "AED"
@@ -29,7 +38,6 @@ class Currency(StrEnum):
     BMD = "BMD"
     BND = "BND"
     BOB = "BOB"
-    BOV = "BOV"
     BRL = "BRL"
     BSD = "BSD"
     BTN = "BTN"
@@ -38,14 +46,10 @@ class Currency(StrEnum):
     BZD = "BZD"
     CAD = "CAD"
     CDF = "CDF"
-    CHE = "CHE"
     CHF = "CHF"
-    CHW = "CHW"
-    CLF = "CLF"
     CLP = "CLP"
     CNY = "CNY"
     COP = "COP"
-    COU = "COU"
     CRC = "CRC"
     CUP = "CUP"
     CVE = "CVE"
@@ -108,7 +112,6 @@ class Currency(StrEnum):
     MVR = "MVR"
     MWK = "MWK"
     MXN = "MXN"
-    MXV = "MXV"
     MYR = "MYR"
     MZN = "MZN"
     NAD = "NAD"
@@ -157,33 +160,18 @@ class Currency(StrEnum):
     UAH = "UAH"
     UGX = "UGX"
     USD = "USD"
-    USN = "USN"
-    UYI = "UYI"
     UYU = "UYU"
-    UYW = "UYW"
     UZS = "UZS"
     VED = "VED"
     VES = "VES"
     VND = "VND"
     VUV = "VUV"
     WST = "WST"
-    XAD = "XAD"
     XAF = "XAF"
-    XAG = "XAG"
-    XAU = "XAU"
-    XBA = "XBA"
-    XBB = "XBB"
-    XBC = "XBC"
-    XBD = "XBD"
     XCD = "XCD"
     XCG = "XCG"
-    XDR = "XDR"
     XOF = "XOF"
-    XPD = "XPD"
     XPF = "XPF"
-    XPT = "XPT"
-    XSU = "XSU"
-    XUA = "XUA"
     YER = "YER"
     ZAR = "ZAR"
     ZMW = "ZMW"

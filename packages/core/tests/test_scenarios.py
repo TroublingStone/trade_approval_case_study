@@ -16,7 +16,7 @@ class TestScenario1SubmitAndApprove:
         trade.submit(user1, make_trade_details())
         assert trade.state == State.PENDING_APPROVAL
 
-        trade.accept(user2)
+        trade.approve(user2)
         assert trade.state == State.APPROVED
 
 
@@ -36,11 +36,9 @@ class TestScenario2UpdateRequiringReapproval:
         trade.update(user2, updated_details)
         assert trade.state == State.NEEDS_REAPPROVAL
 
-        trade.accept(user1)
+        trade.approve(user1)
         assert trade.state == State.APPROVED
 
-        # only the notional amount changed; everything else matches the
-        # original submission
         assert trade.details == updated_details
 
 
@@ -55,7 +53,7 @@ class TestScenario3Execution:
         trade.submit(user1, make_trade_details())
         assert trade.state == State.PENDING_APPROVAL
 
-        trade.accept(user2)
+        trade.approve(user2)
         assert trade.state == State.APPROVED
 
         trade.send_to_execute(user2)
@@ -67,7 +65,7 @@ class TestScenario3Execution:
     def test_details_reflect_booked_strike(self, fake_clock, make_trade_details, user1, user2):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 
@@ -85,7 +83,7 @@ class TestScenario4HistoryAndDiff:
 
         trade.submit(user1, original)
         trade.update(user2, replace(original, notional_amount=Decimal("1200000")))
-        trade.accept(user1)
+        trade.approve(user1)
 
         history = trade.history()
 
@@ -102,7 +100,9 @@ class TestScenario4HistoryAndDiff:
             State.APPROVED,
         ]
 
-    def test_diff_matches_doc_example_shape(self, fake_clock, make_trade_details, user1, user2):
+    def test_diff_shows_changed_field_with_old_and_new_values(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
         trade = Trade(clock=fake_clock)
         original = make_trade_details()
 

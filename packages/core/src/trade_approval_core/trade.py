@@ -11,8 +11,8 @@ from trade_approval_core.errors import (
     InvalidSeqError,
     InvalidTransitionError,
     MissingTradeDetailsError,
+    NoOpUpdateError,
     StrikeBeforeExecutionError,
-    ValidationError,
 )
 from trade_approval_core.events import (
     ActionRecord,
@@ -27,7 +27,7 @@ from trade_approval_core.events import (
 from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.transition import (
     ApproverOnly,
-    NotMaker,
+    NotRequester,
     RequesterOnly,
     RequesterOrApprover,
     Transition,
@@ -37,9 +37,9 @@ from trade_approval_core.types import TradeId, UserId
 
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
     (State.DRAFT,                Action.SUBMIT):          Unrestricted(),
-    (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(),
+    (State.PENDING_APPROVAL,     Action.APPROVE):         NotRequester(),
     (State.NEEDS_REAPPROVAL,     Action.APPROVE):         RequesterOnly(),
-    (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(),
+    (State.PENDING_APPROVAL,     Action.UPDATE):          NotRequester(),
     (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(),
     (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(),
     (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(),
@@ -60,6 +60,15 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 class Trade:
+    """Event-sourced trade moving through the approval workflow.
+
+    Identity is trusted input: every action takes a caller-supplied UserId and
+    the library authorizes it purely against this trade's own event history
+    (requester/approver). Authenticating that the UserId really is the
+    acting user is the caller's responsibility -- there is no user directory
+    or role system here.
+    """
+
     def __init__(self, clock: Callable[[], datetime] = _utc_now) -> None:
         self.id = TradeId(str(uuid4()))
         self._events: list[Event] = []
@@ -101,12 +110,18 @@ class Trade:
         return None
 
     @property
-    def maker(self) -> UserId | None:
-        # Author of the details currently awaiting approval: the submitter, or
-        # the updater once an amendment has been made. Pivots on each Update.
-        for event in reversed(self._events):
-            if isinstance(event, (Submitted, Updated)):
-                return event.user_id
+    def confirmation(self) -> str | None:
+        """The counterparty's execution confirmation reference, or None before
+        the trade is booked.
+
+        Unlike the strike rate (an execution outcome folded into TradeDetails),
+        the confirmation is not a trade detail - it is an execution artifact
+        carried only by the Booked event, so it is surfaced here rather than on
+        the details. Book is terminal, so there is at most one.
+        """
+        for event in self._events:
+            if isinstance(event, Booked):
+                return event.confirmation
         return None
 
     @property
@@ -116,12 +131,16 @@ class Trade:
     def details_as_of(self, seq: int) -> TradeDetails:
         if not (0 <= seq < len(self._events)):
             raise InvalidSeqError(self.id, seq)
-        details = self._fold(event for event in self._events if event.seq <= seq)
+        details = self._fold(self._events[: seq + 1])
         if details is None:
             raise MissingTradeDetailsError(self.id)
         return details
 
     def diff(self, seq_a: int, seq_b: int) -> dict[str, tuple[Any, Any]]:
+        """Field-level changes between two versions, keyed by TradeDetails
+        field name. Oriented: each value is ``(value at seq_a, value at
+        seq_b)``, so a reversed range swaps the pairs rather than raising.
+        """
         old = self.details_as_of(seq_a)
         new = self.details_as_of(seq_b)
         return {
@@ -157,7 +176,7 @@ class Trade:
         )
         self._events.append(event)
 
-    def accept(self, user: UserId) -> None:
+    def approve(self, user: UserId) -> None:
         transition = self._lookup(self.state, Action.APPROVE)
         transition.authorize(self, user)
         event = Approved(
@@ -207,7 +226,7 @@ class Trade:
         details = self._retrieve_and_validate_details()
         changes = self._diff_details(details, new_details)
         if not changes:
-            raise ValidationError("update must change at least one field")
+            raise NoOpUpdateError()
 
         self._events.append(Updated(
             seq=len(self._events),
@@ -240,8 +259,6 @@ class Trade:
 
     @staticmethod
     def _reject_premature_strike(details: TradeDetails) -> None:
-        # The strike is an execution outcome recorded by Book, not something a
-        # requester or updater may supply. Enforced for both submit and update.
         if details.strike_rate is not None:
             raise StrikeBeforeExecutionError(details.strike_rate)
 

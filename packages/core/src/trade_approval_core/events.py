@@ -13,14 +13,13 @@ from .errors import (
     EmptyConfirmationError,
     NaiveEventTimestampError,
     NegativeEventSeqError,
+    NonFiniteStrikeRateError,
     NonPositiveStrikeRateError,
 )
 from .trade_details import TradeDetails
 from .types import UserId
 
 __all__ = [
-    "State",
-    "UserId",
     "Event",
     "Submitted",
     "Approved",
@@ -98,6 +97,8 @@ class Booked(Event):
 
     def _validate(self) -> None:
         super()._validate()
+        if not self.strike_rate.is_finite():
+            raise NonFiniteStrikeRateError(self.strike_rate)
         if self.strike_rate <= 0:
             raise NonPositiveStrikeRateError(self.strike_rate)
         if not self.confirmation.strip():
