@@ -720,7 +720,7 @@ name = "trade-approval-core"
 version = "0.1.0"
 source = { path = "../core/dist/trade_approval_core-0.1.0-py3-none-any.whl" }
 wheels = [
-    { filename = "trade_approval_core-0.1.0-py3-none-any.whl", hash = "sha256:cdc33bfa8eb67fd6313902765b6de2da8d3ba37d1acfc4e7f3f18cf67e04fc5f" },
+    { filename = "trade_approval_core-0.1.0-py3-none-any.whl", hash = "sha256:320edebe23562e8712c1108722403c7fea730bc7df290aa26d081d2e5a9d8af9" },
 ]
 
 [[package]]

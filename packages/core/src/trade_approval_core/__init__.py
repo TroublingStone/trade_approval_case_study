@@ -26,7 +26,16 @@ from .errors import (
     UnauthorizedActionError,
     ValidationError,
 )
-from .events import ActionRecord
+from .events import (
+    ActionRecord,
+    Approved,
+    Booked,
+    Cancelled,
+    Event,
+    SentToExecute,
+    Submitted,
+    Updated,
+)
 from .store import InMemoryTradeStore, TradeStore
 from .trade import Trade
 from .trade_details import TradeDetails
@@ -43,6 +52,13 @@ __all__ = [
     "State",
     "Style",
     "ActionRecord",
+    "Event",
+    "Submitted",
+    "Approved",
+    "Updated",
+    "Cancelled",
+    "SentToExecute",
+    "Booked",
     "TradeStore",
     "InMemoryTradeStore",
     "ValidationError",

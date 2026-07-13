@@ -20,8 +20,6 @@ from .trade_details import TradeDetails
 from .types import UserId
 
 __all__ = [
-    "State",
-    "UserId",
     "Event",
     "Submitted",
     "Approved",

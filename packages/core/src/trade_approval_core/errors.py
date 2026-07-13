@@ -5,23 +5,33 @@ from .enums import Action, Currency, State
 from .types import TradeId, UserId
 
 
-class ValidationError(Exception):
-    """Base class for all domain validation errors."""
+class TradeError(Exception):
+    """Base class for every domain rejection in this library.
 
-class TradeError(ValidationError):
-    """Base class for errors caused by violating a trading/financial domain
-    rule -- e.g. date ordering, notional/underlying consistency, state
-    transitions, authorization, or event-log integrity.
+    Catching TradeError means "the request was refused for a domain reason":
+    unacceptable input values (ValidationError), an action not allowed from
+    the current state (InvalidTransitionError), a user who may not act
+    (UnauthorizedActionError), a lost write race (ConcurrentModificationError),
+    or event-log integrity problems (CorruptEventLogError and friends).
 
-    Not every ValidationError is a TradeError: generic input-shape checks
-    (a non-negative seq, a non-empty field) are direct ValidationError
-    subclasses instead, since they'd apply to any event-sourced system and
-    have nothing to do with trading specifically. TradeNotFoundError is
-    deliberately excluded from both -- a missing lookup isn't invalid input.
+    TradeNotFoundError is deliberately excluded -- a lookup miss is not a
+    domain rejection.
+    """
+
+class ValidationError(TradeError):
+    """Base class for value-validation failures: the supplied details or
+    event fields are unacceptable regardless of the trade's state -- date
+    ordering, notional/strike bounds, party names, currency consistency,
+    event shape (seq, timestamp, changes, confirmation).
+
+    The non-value rejections -- state transitions, authorization,
+    concurrency, log integrity -- are sibling TradeError subclasses, so
+    catching ValidationError never swallows a state conflict or a
+    permissions failure.
     """
 
 
-class InvalidDateOrderError(TradeError):
+class InvalidDateOrderError(ValidationError):
     """Raised when trade/value/delivery dates are not chronologically ordered."""
 
     def __init__(self, trade_date: date, value_date: date, delivery_date: date) -> None:
@@ -34,7 +44,7 @@ class InvalidDateOrderError(TradeError):
         )
 
 
-class NonPositiveNotionalAmountError(TradeError):
+class NonPositiveNotionalAmountError(ValidationError):
     """Raised when the notional amount is not strictly positive."""
 
     def __init__(self, notional_amount: Decimal) -> None:
@@ -42,7 +52,7 @@ class NonPositiveNotionalAmountError(TradeError):
         super().__init__(f"notional amount must be positive, got {notional_amount}")
 
 
-class NonFiniteNotionalAmountError(TradeError):
+class NonFiniteNotionalAmountError(ValidationError):
     """Raised when the notional amount is NaN or infinite.
 
     Checked before the sign check: comparing a NaN Decimal signals
@@ -55,7 +65,7 @@ class NonFiniteNotionalAmountError(TradeError):
         super().__init__(f"notional amount must be a finite number, got {notional_amount}")
 
 
-class EmptyPartyNameError(TradeError):
+class EmptyPartyNameError(ValidationError):
     """Raised when the trading entity or counterparty name is empty or blank."""
 
     def __init__(self, field: str) -> None:
@@ -63,7 +73,7 @@ class EmptyPartyNameError(TradeError):
         super().__init__(f"{field} must be a non-empty string")
 
 
-class NotionalCurrencyMismatchError(TradeError):
+class NotionalCurrencyMismatchError(ValidationError):
     """Raised when the notional currency is not part of the underlying pair."""
 
     def __init__(self, notional_currency: Currency, underlying: tuple[Currency, Currency]) -> None:
@@ -75,7 +85,7 @@ class NotionalCurrencyMismatchError(TradeError):
         )
 
 
-class DuplicateUnderlyingCurrencyError(TradeError):
+class DuplicateUnderlyingCurrencyError(ValidationError):
     """Raised when both currencies in the underlying pair are the same."""
 
     def __init__(self, underlying: tuple[Currency, Currency]) -> None:
@@ -85,7 +95,7 @@ class DuplicateUnderlyingCurrencyError(TradeError):
         )
 
 
-class NonPositiveStrikeRateError(TradeError):
+class NonPositiveStrikeRateError(ValidationError):
     """Raised when a strike rate is not strictly positive.
 
     Shared by TradeDetails.strike_rate and Booked.strike_rate -- there is one
@@ -98,7 +108,7 @@ class NonPositiveStrikeRateError(TradeError):
         super().__init__(f"strike rate must be positive, got {strike_rate}")
 
 
-class NonFiniteStrikeRateError(TradeError):
+class NonFiniteStrikeRateError(ValidationError):
     """Raised when a strike rate is NaN or infinite.
 
     Shared by TradeDetails.strike_rate and Booked.strike_rate, like
@@ -111,7 +121,7 @@ class NonFiniteStrikeRateError(TradeError):
         super().__init__(f"strike rate must be a finite number, got {strike_rate}")
 
 
-class NoOpUpdateError(TradeError):
+class NoOpUpdateError(ValidationError):
     """Raised when an update supplies details identical to the current ones.
 
     The trade-level counterpart of EmptyChangesError: update() computes the
@@ -123,7 +133,7 @@ class NoOpUpdateError(TradeError):
         super().__init__("update must change at least one field")
 
 
-class StrikeBeforeExecutionError(TradeError):
+class StrikeBeforeExecutionError(ValidationError):
     """Raised when a strike rate is supplied before the trade is executed.
 
     Per the spec the strike (agreed rate) only exists once the counterparty
@@ -172,9 +182,9 @@ class EmptyConfirmationError(ValidationError):
 class TradeNotFoundError(Exception):
     """Raised when no trade exists for a given id.
 
-    Deliberately not a ValidationError/TradeError: a lookup miss isn't
-    invalid input or a broken trading rule, so callers that catch those to
-    mean "bad request" shouldn't also catch a missing trade by accident.
+    Deliberately not a TradeError: a lookup miss isn't invalid input or a
+    broken trading rule, so callers that catch TradeError to mean "the
+    domain refused this" shouldn't also catch a missing trade by accident.
     """
 
     def __init__(self, trade_id: TradeId) -> None:
