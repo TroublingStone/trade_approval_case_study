@@ -18,7 +18,14 @@ class TradeStore(Protocol):
         """Raise TradeNotFoundError if no trade exists for trade_id."""
         ...
 
-    def list(self) -> list[Trade]: ...
+    def list(self, *, limit: int | None = None, after: TradeId | None = None) -> list[Trade]:
+        """Trades ordered by id (lexicographic -- the cursor order).
+
+        `after` returns only trades with id strictly greater than it, `limit`
+        caps the result count; together they support cursor pagination. The
+        defaults return everything.
+        """
+        ...
 
 
 class InMemoryTradeStore:
@@ -34,5 +41,8 @@ class InMemoryTradeStore:
         except KeyError:
             raise TradeNotFoundError(trade_id) from None
 
-    def list(self) -> list[Trade]:
-        return list(self._trades.values())
+    def list(self, *, limit: int | None = None, after: TradeId | None = None) -> list[Trade]:
+        trades = sorted(self._trades.values(), key=lambda trade: trade.id)
+        if after is not None:
+            trades = [trade for trade in trades if trade.id > after]
+        return trades if limit is None else trades[:limit]

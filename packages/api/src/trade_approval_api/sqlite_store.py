@@ -168,8 +168,13 @@ class SqliteTradeStore:
         self._known_counts[trade] = len(rows)
         return trade
 
-    def list(self) -> list[Trade]:
-        rows = self._conn.execute("SELECT * FROM events ORDER BY trade_id ASC, seq ASC").fetchall()
+    def list(self, *, limit: int | None = None, after: TradeId | None = None) -> list[Trade]:
+        rows = self._conn.execute(
+            "SELECT * FROM events WHERE trade_id IN ("
+            "  SELECT DISTINCT trade_id FROM events WHERE trade_id > ? ORDER BY trade_id LIMIT ?"
+            ") ORDER BY trade_id ASC, seq ASC",
+            (after if after is not None else "", limit if limit is not None else -1),
+        ).fetchall()
         grouped: dict[TradeId, list[Event]] = {}
         for row in rows:
             trade_id = TradeId(row["trade_id"])

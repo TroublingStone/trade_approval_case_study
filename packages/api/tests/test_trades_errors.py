@@ -1,3 +1,12 @@
+import logging
+
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from trade_approval_core.errors import CorruptEventLogError
+from trade_approval_core.types import TradeId
+
+from trade_approval_api.errors import register_exception_handlers
+
 from .conftest import as_user
 
 
@@ -151,3 +160,27 @@ class TestMissingUser:
 
         response = await client.post(f"/trades/{trade_id}/approve")
         assert response.status_code == 401
+
+
+class TestInternalErrors:
+
+    async def test_500_logs_traceback_and_returns_generic_detail(self, caplog):
+        app = FastAPI()
+        register_exception_handlers(app)
+
+        @app.get("/boom")
+        async def boom() -> None:
+            raise CorruptEventLogError(TradeId("trade-1"))
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with caplog.at_level(logging.ERROR, logger="trade_approval_api.errors"):
+                response = await client.get("/boom")
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Internal Server Error"}
+        assert "trade-1" not in response.text
+
+        [record] = [r for r in caplog.records if r.name == "trade_approval_api.errors"]
+        assert record.exc_info is not None
+        assert record.exc_info[0] is CorruptEventLogError

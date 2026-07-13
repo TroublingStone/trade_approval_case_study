@@ -110,6 +110,21 @@ class Trade:
         return None
 
     @property
+    def confirmation(self) -> str | None:
+        """The counterparty's execution confirmation reference, or None before
+        the trade is booked.
+
+        Unlike the strike rate (an execution outcome folded into TradeDetails),
+        the confirmation is not a trade detail - it is an execution artifact
+        carried only by the Booked event, so it is surfaced here rather than on
+        the details. Book is terminal, so there is at most one.
+        """
+        for event in self._events:
+            if isinstance(event, Booked):
+                return event.confirmation
+        return None
+
+    @property
     def details(self) -> TradeDetails | None:
         return self._fold(self._events)
 

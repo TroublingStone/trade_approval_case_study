@@ -48,3 +48,29 @@ class TestStrikeIsPostExecutionOnly:
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")  # seq 3
 
         assert trade.diff(0, 3) == {"strike_rate": (None, Decimal("1.30"))}
+
+
+class TestConfirmation:
+    """The execution confirmation reference is recorded by Book and exposed as
+    a Trade query, so consumers can surface it without re-reading the event log.
+    It is not part of TradeDetails (that only carries the strike rate).
+    """
+
+    def test_confirmation_is_none_before_booking(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.accept(user2)
+        trade.send_to_execute(user2)
+        assert trade.confirmation is None
+
+    def test_confirmation_is_available_after_booking(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+        trade.accept(user2)
+        trade.send_to_execute(user2)
+        trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
+        assert trade.confirmation == "CONF-1"

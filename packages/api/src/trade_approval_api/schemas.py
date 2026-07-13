@@ -10,6 +10,16 @@ from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.types import TradeId, UserId
 
 
+class ErrorDetail(BaseModel):
+    """Body returned by the API's own error handlers (validation, transition,
+    authorization, not-found, concurrency). Documents those responses in the
+    OpenAPI schema. FastAPI's automatic request-validation 422 is separate and
+    uses its own list-shaped ``detail`` instead.
+    """
+
+    detail: str
+
+
 class TradeDetailsIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
@@ -51,6 +61,8 @@ class TradeOut(BaseModel):
     state: State
     requester: UserId | None
     approver: UserId | None
+    latest_seq: int
+    confirmation: str | None = None
     details: TradeDetailsOut
 
     @classmethod
@@ -63,8 +75,20 @@ class TradeOut(BaseModel):
             state=trade.state,
             requester=trade.requester,
             approver=trade.approver,
+            latest_seq=trade.events[-1].seq,
+            confirmation=trade.confirmation,
             details=TradeDetailsOut.from_core(details),
         )
+
+
+class TradePageOut(BaseModel):
+    """One page of the trade listing, in trade-id order. `next_cursor` is the
+    id to pass as `after` for the following page; null means this is the last
+    page.
+    """
+
+    items: list[TradeOut]
+    next_cursor: TradeId | None
 
 
 class BookRequest(BaseModel):

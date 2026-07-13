@@ -65,3 +65,19 @@ class TestDiff:
         response = await client.get(f"/trades/{trade_id}/diff", params={"from": 0, "to": 0})
         assert response.status_code == 200
         assert response.json() == {}
+
+    async def test_latest_seq_from_get_drives_diff_without_reading_history(self, client, details_payload):
+        """A plain GET /trades/{id} exposes latest_seq, so a caller can diff the
+        current version against the first without first walking /history.
+        """
+        response = await client.post("/trades", json=details_payload, headers=as_user("user-1"))
+        trade_id = response.json()["id"]
+        updated_payload = {**details_payload, "notional_amount": "1200000"}
+        await client.post(f"/trades/{trade_id}/update", json=updated_payload, headers=as_user("user-2"))
+
+        latest_seq = (await client.get(f"/trades/{trade_id}")).json()["latest_seq"]
+        assert latest_seq == 1
+
+        response = await client.get(f"/trades/{trade_id}/diff", params={"from": 0, "to": latest_seq})
+        assert response.status_code == 200
+        assert response.json() == {"notional_amount": ["1000000", "1200000"]}

@@ -167,3 +167,45 @@ class TestList:
         store.save(trade_b)
 
         assert {t.id for t in store.list()} == {trade_a.id, trade_b.id}
+
+
+class TestListPagination:
+    """Mirror of core's InMemoryTradeStore pagination contract: id order,
+    `after` strictly excludes the cursor, `limit` caps the page -- here backed
+    by the SQL paging subquery.
+    """
+
+    @staticmethod
+    def _store_with_ids(path, fake_clock, make_trade_details, user1, ids):
+        store = SqliteTradeStore(path)
+        for raw_id in ids:
+            trade = Trade(clock=fake_clock)
+            trade.id = TradeId(raw_id)
+            trade.submit(user1, make_trade_details())
+            store.save(trade)
+        return store
+
+    def test_list_is_ordered_by_trade_id(self, fake_clock, make_trade_details, user1, tmp_path):
+        store = self._store_with_ids(tmp_path / "t.db", fake_clock, make_trade_details, user1, ["c", "a", "b"])
+        assert [t.id for t in store.list()] == ["a", "b", "c"]
+
+    def test_after_and_limit_walk_pages_without_overlap_or_gaps(
+        self, fake_clock, make_trade_details, user1, tmp_path
+    ):
+        ids = ["a", "b", "c", "d", "e"]
+        store = self._store_with_ids(tmp_path / "t.db", fake_clock, make_trade_details, user1, ids)
+
+        first = store.list(limit=2)
+        second = store.list(limit=2, after=first[-1].id)
+        third = store.list(limit=2, after=second[-1].id)
+        assert [t.id for t in first + second + third] == ids
+
+    def test_after_beyond_the_last_id_returns_empty(self, fake_clock, make_trade_details, user1, tmp_path):
+        store = self._store_with_ids(tmp_path / "t.db", fake_clock, make_trade_details, user1, ["a", "b"])
+        assert store.list(after=TradeId("z")) == []
+
+    def test_paged_trades_are_fully_rehydrated(self, fake_clock, make_trade_details, user1, tmp_path):
+        store = self._store_with_ids(tmp_path / "t.db", fake_clock, make_trade_details, user1, ["a", "b"])
+        [trade] = store.list(limit=1)
+        assert trade.id == "a"
+        assert [record.action for record in trade.history()] == ["Submit"]

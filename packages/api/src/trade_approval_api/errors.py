@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,8 @@ from trade_approval_core.errors import (
     UnauthorizedActionError,
 )
 from trade_approval_core.errors import ValidationError as CoreValidationError
+
+logger = logging.getLogger(__name__)
 
 _EXCEPTION_STATUS: dict[type[Exception], int] = {
     CoreValidationError: 422,
@@ -32,6 +35,9 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 def _handler_for(status_code: int) -> Callable[[Request, Exception], Awaitable[JSONResponse]]:
     async def handler(request: Request, exc: Exception) -> JSONResponse:
+        if status_code >= 500:
+            logger.error("internal error on %s %s", request.method, request.url.path, exc_info=exc)
+            return JSONResponse(status_code=status_code, content={"detail": "Internal Server Error"})
         return JSONResponse(status_code=status_code, content={"detail": str(exc)})
 
     return handler

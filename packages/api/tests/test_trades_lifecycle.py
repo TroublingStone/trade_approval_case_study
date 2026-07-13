@@ -14,6 +14,8 @@ class TestScenario1SubmitAndApprove:
         assert body["state"] == "PendingApproval"
         assert body["requester"] == "user-1"
         assert body["approver"] is None
+        assert body["latest_seq"] == 0
+        assert body["confirmation"] is None
         assert body["details"]["notional_amount"] == "1000000"
         trade_id = body["id"]
 
@@ -21,6 +23,7 @@ class TestScenario1SubmitAndApprove:
         assert response.status_code == 200
         assert response.json()["state"] == "Approved"
         assert response.json()["approver"] == "user-2"
+        assert response.json()["latest_seq"] == 1
 
 
 class TestScenario2UpdateRequiresReapproval:
@@ -65,8 +68,11 @@ class TestScenario3Execution:
             headers=as_user("user-1"),
         )
         assert response.status_code == 200
-        assert response.json()["state"] == "Executed"
-        assert response.json()["details"]["strike_rate"] == "1.2345"
+        body = response.json()
+        assert body["state"] == "Executed"
+        assert body["details"]["strike_rate"] == "1.2345"
+        assert body["confirmation"] == "CONF-1"
+        assert body["latest_seq"] == 3
 
 
 class TestCancel:
@@ -106,8 +112,32 @@ class TestListAndGet:
 
         response = await client.get("/trades")
         assert response.status_code == 200
-        assert {t["id"] for t in response.json()} == {id_a, id_b}
+        body = response.json()
+        assert {t["id"] for t in body["items"]} == {id_a, id_b}
+        assert body["next_cursor"] is None
 
         response = await client.get(f"/trades/{id_a}")
         assert response.status_code == 200
         assert response.json()["id"] == id_a
+
+    async def test_list_pages_are_walked_via_next_cursor(self, client, details_payload):
+        created = set()
+        for _ in range(3):
+            response = await client.post("/trades", json=details_payload, headers=as_user("user-1"))
+            created.add(response.json()["id"])
+
+        first = (await client.get("/trades", params={"limit": 2})).json()
+        assert len(first["items"]) == 2
+        assert first["next_cursor"] == first["items"][-1]["id"]
+
+        second = (await client.get("/trades", params={"limit": 2, "after": first["next_cursor"]})).json()
+        assert len(second["items"]) == 1
+        assert second["next_cursor"] is None
+
+        walked = [t["id"] for t in first["items"] + second["items"]]
+        assert len(walked) == len(set(walked)) == 3
+        assert set(walked) == created
+
+    async def test_list_rejects_out_of_range_limit(self, client):
+        assert (await client.get("/trades", params={"limit": 0})).status_code == 422
+        assert (await client.get("/trades", params={"limit": 201})).status_code == 422
