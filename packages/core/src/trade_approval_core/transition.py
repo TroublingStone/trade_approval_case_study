@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from trade_approval_core.enums import State
 from trade_approval_core.errors import UnauthorizedActionError
 from trade_approval_core.types import UserId
 
@@ -12,7 +11,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Transition(ABC):
-    target: State
+    """Decides *who* may take an action from a given state.
+
+    Carries no target state -- ACTION_TO_STATE_MAP (trade.py) is the single
+    source of truth for what state an action produces, derived from the event
+    type it appends. A Transition's only job is authorize().
+    """
 
     @abstractmethod
     def authorize(self, trade: "Trade", user: UserId) -> None:

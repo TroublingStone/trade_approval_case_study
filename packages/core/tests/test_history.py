@@ -1,6 +1,8 @@
 from decimal import Decimal
 
+import pytest
 from trade_approval_core.enums import State
+from trade_approval_core.errors import InvalidSeqError
 from trade_approval_core.trade import Trade
 
 
@@ -76,6 +78,37 @@ class TestDetailsAtPreviousState:
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 
         assert trade.details_as_of(3).strike_rate == Decimal("1.30")
+
+
+class TestInvalidSeq:
+    """details_as_of()/diff() take a caller-supplied seq -- e.g. from an API
+    request for "trade details at previous state N." An out-of-range value is
+    a normal input to guard against, not just an internal invariant.
+    """
+
+    def test_negative_seq_is_rejected(self, fake_clock, make_trade_details, user1):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+
+        with pytest.raises(InvalidSeqError) as exc_info:
+            trade.details_as_of(-1)
+        assert exc_info.value.trade_id == trade.id
+        assert exc_info.value.seq == -1
+
+    def test_seq_past_last_event_is_rejected(self, fake_clock, make_trade_details, user1):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())  # only seq 0 exists
+
+        with pytest.raises(InvalidSeqError) as exc_info:
+            trade.details_as_of(1)
+        assert exc_info.value.seq == 1
+
+    def test_diff_propagates_invalid_seq(self, fake_clock, make_trade_details, user1):
+        trade = Trade(clock=fake_clock)
+        trade.submit(user1, make_trade_details())
+
+        with pytest.raises(InvalidSeqError):
+            trade.diff(0, 5)
 
 
 class TestDiff:

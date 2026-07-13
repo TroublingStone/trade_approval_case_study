@@ -36,18 +36,16 @@ from trade_approval_core.transition import (
 from trade_approval_core.types import TradeId, UserId
 
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
-    (State.DRAFT,                Action.SUBMIT):          Unrestricted(State.PENDING_APPROVAL),
-    (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(State.APPROVED),
-    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         RequesterOnly(State.APPROVED),
-    (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(State.NEEDS_REAPPROVAL),
-    (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
-    (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
-    (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
-    (State.APPROVED,             Action.SEND_TO_EXECUTE): ApproverOnly(
-        State.SENT_TO_COUNTERPARTY
-    ),
-    (State.SENT_TO_COUNTERPARTY, Action.BOOK):            RequesterOrApprover(State.EXECUTED),
-    (State.SENT_TO_COUNTERPARTY, Action.CANCEL):          RequesterOrApprover(State.CANCELLED),
+    (State.DRAFT,                Action.SUBMIT):          Unrestricted(),
+    (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(),
+    (State.NEEDS_REAPPROVAL,     Action.APPROVE):         RequesterOnly(),
+    (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(),
+    (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(),
+    (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(),
+    (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(),
+    (State.APPROVED,             Action.SEND_TO_EXECUTE): ApproverOnly(),
+    (State.SENT_TO_COUNTERPARTY, Action.BOOK):            RequesterOrApprover(),
+    (State.SENT_TO_COUNTERPARTY, Action.CANCEL):          RequesterOrApprover(),
 }
 ACTION_TO_STATE_MAP = {
     Submitted:     State.PENDING_APPROVAL,
@@ -66,6 +64,24 @@ class Trade:
         self.id = TradeId(str(uuid4()))
         self._events: list[Event] = []
         self._clock = clock
+
+    @classmethod
+    def from_events(
+        cls, trade_id: TradeId, events: Iterable[Event], clock: Callable[[], datetime] = _utc_now
+    ) -> "Trade":
+        """Rehydrate a Trade from a previously persisted event sequence.
+
+        `events` must already be in seq order -- callers (e.g. a store reading
+        rows back in seq order) own that guarantee, this just replays it.
+        """
+        trade = cls(clock=clock)
+        trade.id = trade_id
+        trade._events = list(events)
+        return trade
+
+    @property
+    def events(self) -> tuple[Event, ...]:
+        return tuple(self._events)
 
     @property
     def state(self) -> State:

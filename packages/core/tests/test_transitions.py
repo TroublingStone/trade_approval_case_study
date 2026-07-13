@@ -11,7 +11,7 @@ from trade_approval_core.events import (
     Submitted,
     Updated,
 )
-from trade_approval_core.trade import ALLOWED_TRANSITIONS, Trade
+from trade_approval_core.trade import Trade
 from trade_approval_core.transition import (
     ApproverOnly,
     NotMaker,
@@ -20,11 +20,24 @@ from trade_approval_core.transition import (
     Unrestricted,
 )
 
+EXPECTED_TARGET_STATE: dict[tuple[State, Action], State] = {
+    (State.DRAFT, Action.SUBMIT): State.PENDING_APPROVAL,
+    (State.PENDING_APPROVAL, Action.APPROVE): State.APPROVED,
+    (State.NEEDS_REAPPROVAL, Action.APPROVE): State.APPROVED,
+    (State.PENDING_APPROVAL, Action.UPDATE): State.NEEDS_REAPPROVAL,
+    (State.PENDING_APPROVAL, Action.CANCEL): State.CANCELLED,
+    (State.NEEDS_REAPPROVAL, Action.CANCEL): State.CANCELLED,
+    (State.APPROVED, Action.CANCEL): State.CANCELLED,
+    (State.APPROVED, Action.SEND_TO_EXECUTE): State.SENT_TO_COUNTERPARTY,
+    (State.SENT_TO_COUNTERPARTY, Action.BOOK): State.EXECUTED,
+    (State.SENT_TO_COUNTERPARTY, Action.CANCEL): State.CANCELLED,
+}
+
 ALL_STATE_ACTION_PAIRS = [(state, action) for state in State for action in Action]
-INVALID_PAIRS = [pair for pair in ALL_STATE_ACTION_PAIRS if pair not in ALLOWED_TRANSITIONS]
+INVALID_PAIRS = [pair for pair in ALL_STATE_ACTION_PAIRS if pair not in EXPECTED_TARGET_STATE]
 NON_SUBMIT_VALID_TRANSITIONS = [
-    (state, action, transition.target)
-    for (state, action), transition in ALLOWED_TRANSITIONS.items()
+    (state, action, target)
+    for (state, action), target in EXPECTED_TARGET_STATE.items()
     if action is not Action.SUBMIT
 ]
 
@@ -141,9 +154,10 @@ class TestBook:
 
 
 class TestInvalidTransitions:
-    """Every (state, action) pair NOT in ALLOWED_TRANSITIONS must be rejected.
-    Covers both terminal states (Executed, Cancelled x all 6 actions) and
-    Draft x every action except Submit, as a byproduct of the full matrix.
+    """Every (state, action) pair NOT in the spec's transition table must be
+    rejected. Covers both terminal states (Executed, Cancelled x all 6
+    actions) and Draft x every action except Submit, as a byproduct of the
+    full matrix.
 
     Trade._lookup() checks the (state, action) pair and raises
     InvalidTransitionError before transition.authorize() is ever called, so
@@ -167,8 +181,9 @@ class TestInvalidTransitions:
 
 
 class TestValidTransitionsBeyondSubmit:
-    """Every ALLOWED_TRANSITIONS entry except Submit, verified independently of
-    *who* is allowed to act -- that's test_authorization.py's job. Reusing the
+    """Every entry in the spec's transition table except Submit, verified
+    independently of *who* is allowed to act -- that's test_authorization.py's
+    job. Reusing the
     single-fabricated-user trade_in_state() here would conflate the two
     concerns now that Trade.requester/approver exist (that single user would
     end up being both requester and approver for every case, which happens to

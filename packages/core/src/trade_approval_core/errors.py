@@ -8,11 +8,20 @@ from .types import TradeId, UserId
 class ValidationError(Exception):
     """Base class for all domain validation errors."""
 
-class TradeError(Exception):
-    """Base class for every domain error raised by the library."""
+class TradeError(ValidationError):
+    """Base class for errors caused by violating a trading/financial domain
+    rule -- e.g. date ordering, notional/underlying consistency, state
+    transitions, authorization, or event-log integrity.
+
+    Not every ValidationError is a TradeError: generic input-shape checks
+    (a non-negative seq, a non-empty field) are direct ValidationError
+    subclasses instead, since they'd apply to any event-sourced system and
+    have nothing to do with trading specifically. TradeNotFoundError is
+    deliberately excluded from both -- a missing lookup isn't invalid input.
+    """
 
 
-class InvalidDateOrderError(ValidationError):
+class InvalidDateOrderError(TradeError):
     """Raised when trade/value/delivery dates are not chronologically ordered."""
 
     def __init__(self, trade_date: date, value_date: date, delivery_date: date) -> None:
@@ -25,7 +34,7 @@ class InvalidDateOrderError(ValidationError):
         )
 
 
-class NonPositiveNotionalAmountError(ValidationError):
+class NonPositiveNotionalAmountError(TradeError):
     """Raised when the notional amount is not strictly positive."""
 
     def __init__(self, notional_amount: Decimal) -> None:
@@ -33,7 +42,7 @@ class NonPositiveNotionalAmountError(ValidationError):
         super().__init__(f"notional amount must be positive, got {notional_amount}")
 
 
-class NotionalCurrencyMismatchError(ValidationError):
+class NotionalCurrencyMismatchError(TradeError):
     """Raised when the notional currency is not part of the underlying pair."""
 
     def __init__(self, notional_currency: Currency, underlying: tuple[Currency, Currency]) -> None:
@@ -45,7 +54,7 @@ class NotionalCurrencyMismatchError(ValidationError):
         )
 
 
-class DuplicateUnderlyingCurrencyError(ValidationError):
+class DuplicateUnderlyingCurrencyError(TradeError):
     """Raised when both currencies in the underlying pair are the same."""
 
     def __init__(self, underlying: tuple[Currency, Currency]) -> None:
@@ -55,7 +64,7 @@ class DuplicateUnderlyingCurrencyError(ValidationError):
         )
 
 
-class NonPositiveStrikeRateError(ValidationError):
+class NonPositiveStrikeRateError(TradeError):
     """Raised when a strike rate is not strictly positive.
 
     Shared by TradeDetails.strike_rate and Booked.strike_rate -- there is one
@@ -68,7 +77,7 @@ class NonPositiveStrikeRateError(ValidationError):
         super().__init__(f"strike rate must be positive, got {strike_rate}")
 
 
-class StrikeBeforeExecutionError(ValidationError):
+class StrikeBeforeExecutionError(TradeError):
     """Raised when a strike rate is supplied before the trade is executed.
 
     Per the spec the strike (agreed rate) only exists once the counterparty
@@ -115,7 +124,12 @@ class EmptyConfirmationError(ValidationError):
 
 
 class TradeNotFoundError(Exception):
-    """Raised when no trade exists for a given id."""
+    """Raised when no trade exists for a given id.
+
+    Deliberately not a ValidationError/TradeError: a lookup miss isn't
+    invalid input or a broken trading rule, so callers that catch those to
+    mean "bad request" shouldn't also catch a missing trade by accident.
+    """
 
     def __init__(self, trade_id: TradeId) -> None:
         self.trade_id = trade_id
@@ -131,7 +145,7 @@ class InvalidTransitionError(TradeError):
         super().__init__(f"cannot {action.value} a trade in state {state}")
 
 
-class MissingTradeDetailsError(Exception):
+class MissingTradeDetailsError(TradeError):
     """Raised when a trade's details are accessed before it has been submitted."""
 
     def __init__(self, trade_id: TradeId) -> None:
@@ -153,6 +167,21 @@ class InvalidSeqError(TradeError):
         self.trade_id = trade_id
         self.seq = seq
         super().__init__(f"trade {trade_id} has no event with seq {seq}")
+
+
+class ConcurrentModificationError(TradeError):
+    """Raised when a store detects that a trade was persisted with more events
+    than the version being saved knows about -- another writer got there first.
+
+    Event-sourced persistence makes this an append-only primary-key conflict
+    (trade_id, seq): a store implementation with genuine concurrent writers
+    (e.g. SqliteTradeStore) surfaces that conflict as this error rather than
+    silently overwriting or duplicating history.
+    """
+
+    def __init__(self, trade_id: TradeId) -> None:
+        self.trade_id = trade_id
+        super().__init__(f"trade {trade_id} was modified concurrently by another writer")
 
 
 class UnauthorizedActionError(TradeError):
