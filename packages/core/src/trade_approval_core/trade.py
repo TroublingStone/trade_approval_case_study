@@ -11,8 +11,8 @@ from trade_approval_core.errors import (
     InvalidSeqError,
     InvalidTransitionError,
     MissingTradeDetailsError,
+    NoOpUpdateError,
     StrikeBeforeExecutionError,
-    ValidationError,
 )
 from trade_approval_core.events import (
     ActionRecord,
@@ -102,8 +102,6 @@ class Trade:
 
     @property
     def maker(self) -> UserId | None:
-        # Author of the details currently awaiting approval: the submitter, or
-        # the updater once an amendment has been made. Pivots on each Update.
         for event in reversed(self._events):
             if isinstance(event, (Submitted, Updated)):
                 return event.user_id
@@ -222,7 +220,7 @@ class Trade:
         details = self._retrieve_and_validate_details()
         changes = self._diff_details(details, new_details)
         if not changes:
-            raise ValidationError("update must change at least one field")
+            raise NoOpUpdateError()
 
         self._events.append(Updated(
             seq=len(self._events),
@@ -255,8 +253,6 @@ class Trade:
 
     @staticmethod
     def _reject_premature_strike(details: TradeDetails) -> None:
-        # The strike is an execution outcome recorded by Book, not something a
-        # requester or updater may supply. Enforced for both submit and update.
         if details.strike_rate is not None:
             raise StrikeBeforeExecutionError(details.strike_rate)
 

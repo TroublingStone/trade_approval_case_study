@@ -97,7 +97,7 @@ class TestInvalidSeq:
 
     def test_seq_past_last_event_is_rejected(self, fake_clock, make_trade_details, user1):
         trade = Trade(clock=fake_clock)
-        trade.submit(user1, make_trade_details())  # only seq 0 exists
+        trade.submit(user1, make_trade_details())
 
         with pytest.raises(InvalidSeqError) as exc_info:
             trade.details_as_of(1)

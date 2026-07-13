@@ -39,8 +39,6 @@ class TestScenario2UpdateRequiringReapproval:
         trade.approve(user1)
         assert trade.state == State.APPROVED
 
-        # only the notional amount changed; everything else matches the
-        # original submission
         assert trade.details == updated_details
 
 

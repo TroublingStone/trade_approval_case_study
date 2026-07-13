@@ -40,9 +40,6 @@ def test_list_reflects_saved_trades(fake_clock):
 
 
 def test_mutations_after_save_are_visible_without_resaving(fake_clock, user1, make_trade_details):
-    # Trade mutates its internal event log in place, so the object returned by
-    # get() already reflects actions taken after save() -- no need to save()
-    # again after every action.
     store = InMemoryTradeStore()
     trade = Trade(clock=fake_clock)
     store.save(trade)

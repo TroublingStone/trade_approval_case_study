@@ -42,6 +42,27 @@ class NonPositiveNotionalAmountError(TradeError):
         super().__init__(f"notional amount must be positive, got {notional_amount}")
 
 
+class NonFiniteNotionalAmountError(TradeError):
+    """Raised when the notional amount is NaN or infinite.
+
+    Checked before the sign check: comparing a NaN Decimal signals
+    decimal.InvalidOperation, which would otherwise escape the domain error
+    hierarchy entirely.
+    """
+
+    def __init__(self, notional_amount: Decimal) -> None:
+        self.notional_amount = notional_amount
+        super().__init__(f"notional amount must be a finite number, got {notional_amount}")
+
+
+class EmptyPartyNameError(TradeError):
+    """Raised when the trading entity or counterparty name is empty or blank."""
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+        super().__init__(f"{field} must be a non-empty string")
+
+
 class NotionalCurrencyMismatchError(TradeError):
     """Raised when the notional currency is not part of the underlying pair."""
 
@@ -75,6 +96,31 @@ class NonPositiveStrikeRateError(TradeError):
     def __init__(self, strike_rate: Decimal) -> None:
         self.strike_rate = strike_rate
         super().__init__(f"strike rate must be positive, got {strike_rate}")
+
+
+class NonFiniteStrikeRateError(TradeError):
+    """Raised when a strike rate is NaN or infinite.
+
+    Shared by TradeDetails.strike_rate and Booked.strike_rate, like
+    NonPositiveStrikeRateError, and checked before the sign check for the same
+    reason as NonFiniteNotionalAmountError.
+    """
+
+    def __init__(self, strike_rate: Decimal) -> None:
+        self.strike_rate = strike_rate
+        super().__init__(f"strike rate must be a finite number, got {strike_rate}")
+
+
+class NoOpUpdateError(TradeError):
+    """Raised when an update supplies details identical to the current ones.
+
+    The trade-level counterpart of EmptyChangesError: update() computes the
+    changed fields itself and refuses to record an Updated event that would
+    force reapproval without changing anything.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("update must change at least one field")
 
 
 class StrikeBeforeExecutionError(TradeError):

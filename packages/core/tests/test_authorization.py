@@ -124,8 +124,6 @@ class TestReapproval:
     def test_unrelated_third_party_cannot_reapprove(
         self, build_trade, make_trade_details, user1, user2, user3
     ):
-        # user3 is not the maker (user2 is), but reapproval is scoped to the
-        # original requester specifically, so user3 is still rejected.
         trade = build_trade(
             (Submitted, user1, {"details": make_trade_details()}),
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
