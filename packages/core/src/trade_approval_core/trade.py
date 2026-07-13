@@ -131,12 +131,16 @@ class Trade:
     def details_as_of(self, seq: int) -> TradeDetails:
         if not (0 <= seq < len(self._events)):
             raise InvalidSeqError(self.id, seq)
-        details = self._fold(event for event in self._events if event.seq <= seq)
+        details = self._fold(self._events[: seq + 1])
         if details is None:
             raise MissingTradeDetailsError(self.id)
         return details
 
     def diff(self, seq_a: int, seq_b: int) -> dict[str, tuple[Any, Any]]:
+        """Field-level changes between two versions, keyed by TradeDetails
+        field name. Oriented: each value is ``(value at seq_a, value at
+        seq_b)``, so a reversed range swaps the pairs rather than raising.
+        """
         old = self.details_as_of(seq_a)
         new = self.details_as_of(seq_b)
         return {

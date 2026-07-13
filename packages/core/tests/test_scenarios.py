@@ -100,7 +100,9 @@ class TestScenario4HistoryAndDiff:
             State.APPROVED,
         ]
 
-    def test_diff_matches_doc_example_shape(self, fake_clock, make_trade_details, user1, user2):
+    def test_diff_shows_changed_field_with_old_and_new_values(
+        self, fake_clock, make_trade_details, user1, user2
+    ):
         trade = Trade(clock=fake_clock)
         original = make_trade_details()
 
