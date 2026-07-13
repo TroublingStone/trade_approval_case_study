@@ -1,0 +1,21 @@
+[project]
+name = "trade-approval-api"
+version = "0.1.0"
+description = "FastAPI wrapper around trade_approval_core"
+requires-python = ">=3.12"
+dependencies = [
+    "trade-approval-core",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic-settings>=2.6",
+]
+
+[tool.uv.sources]
+trade-approval-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trade_approval_api"]

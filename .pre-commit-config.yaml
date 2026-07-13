@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: local
+    hooks:
+      # Core only: the root env has no fastapi/pydantic, and the API is a
+      # separate project whose types need its own env + the built core wheel.
+      # The API is type-checked in CI (the `api` job). ruff above still lints
+      # the API here, using packages/api's own config.
+      - id: mypy
+        name: mypy (core)
+        entry: uv run mypy packages/core/src/trade_approval_core
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: uv-lock-check
+        name: uv lock check (root/core workspace)
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|packages/core/pyproject\.toml|uv\.lock)$

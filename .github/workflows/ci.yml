@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Check uv.lock is up to date
+        run: uv lock --check
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff, PEP8 + line-length 120)
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy packages/core/src/trade_approval_core packages/api/src/trade_approval_api
+
+      - name: Test
+        run: uv run pytest
