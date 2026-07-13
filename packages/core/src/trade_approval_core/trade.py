@@ -172,7 +172,7 @@ class Trade:
         )
         self._events.append(event)
 
-    def accept(self, user: UserId) -> None:
+    def approve(self, user: UserId) -> None:
         transition = self._lookup(self.state, Action.APPROVE)
         transition.authorize(self, user)
         event = Approved(

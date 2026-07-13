@@ -31,7 +31,7 @@ class TestStrikeIsPostExecutionOnly:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         assert trade.details.strike_rate is None
 
@@ -43,7 +43,7 @@ class TestStrikeIsPostExecutionOnly:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())  # seq 0
-        trade.accept(user2)                         # seq 1
+        trade.approve(user2)                         # seq 1
         trade.send_to_execute(user2)                # seq 2
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")  # seq 3
 
@@ -61,7 +61,7 @@ class TestConfirmation:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         assert trade.confirmation is None
 
@@ -70,7 +70,7 @@ class TestConfirmation:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
         assert trade.confirmation == "CONF-1"

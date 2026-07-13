@@ -43,7 +43,7 @@ def _invoke(trade: Trade, action: Action, user, make_trade_details) -> None:
     if action is Action.SUBMIT:
         trade.submit(user, make_trade_details())
     elif action is Action.APPROVE:
-        trade.accept(user)
+        trade.approve(user)
     elif action is Action.UPDATE:
         trade.update(user, make_trade_details(counterparty="Other Bank"))
     elif action is Action.CANCEL:
@@ -119,7 +119,7 @@ class TestBook:
     def test_records_strike_and_confirmation(self, fake_clock, user1, user2, make_trade_details):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
 
         trade.book(user1, Decimal("1.30"), confirmation="CONF-123")
@@ -131,7 +131,7 @@ class TestBook:
     def test_confirmation_is_required(self, fake_clock, user1, user2, make_trade_details):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
 
         with pytest.raises(TypeError):
@@ -143,7 +143,7 @@ class TestBook:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
 
         with pytest.raises(EmptyConfirmationError):

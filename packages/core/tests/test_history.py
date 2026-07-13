@@ -24,7 +24,7 @@ class TestHistory:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
 
         history = trade.history()
@@ -73,7 +73,7 @@ class TestDetailsAtPreviousState:
     ):
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
-        trade.accept(user2)
+        trade.approve(user2)
         trade.send_to_execute(user2)
         trade.book(user1, Decimal("1.30"), confirmation="CONF-1")
 

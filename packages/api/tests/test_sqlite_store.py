@@ -35,7 +35,7 @@ class TestRoundTrip:
         trade = Trade(clock=fake_clock)
         trade.submit(user1, make_trade_details())
         trade.update(user2, make_trade_details(notional_amount=Decimal("1200000")))
-        trade.accept(user1)
+        trade.approve(user1)
         trade.send_to_execute(user2)
         trade.book(user1, Decimal("1.2345"), confirmation="CONF-1")
         store.save(trade)
@@ -105,7 +105,7 @@ class TestAppendOnlySave:
         trade.submit(user1, make_trade_details())
         store.save(trade)
 
-        trade.accept(user2)
+        trade.approve(user2)
         store.save(trade)
 
         assert [r.action for r in store.get(trade.id).history()] == ["Submit", "Approve"]

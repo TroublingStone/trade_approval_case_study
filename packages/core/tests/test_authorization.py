@@ -69,11 +69,11 @@ class TestApproveFromPendingApproval:
     ):
         trade = build_trade((Submitted, user1, {"details": make_trade_details()}))
         with _unauthorized():
-            trade.accept(user1)
+            trade.approve(user1)
 
     def test_any_other_user_can_approve(self, build_trade, make_trade_details, user1, user3):
         trade = build_trade((Submitted, user1, {"details": make_trade_details()}))
-        trade.accept(user3)
+        trade.approve(user3)
         assert trade.state == State.APPROVED
 
 
@@ -108,7 +108,7 @@ class TestReapproval:
             (Submitted, user1, {"details": make_trade_details()}),
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
         )
-        trade.accept(user1)
+        trade.approve(user1)
         assert trade.state == State.APPROVED
 
     def test_the_updater_cannot_reapprove_their_own_update(
@@ -119,7 +119,7 @@ class TestReapproval:
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
         )
         with _unauthorized():
-            trade.accept(user2)
+            trade.approve(user2)
 
     def test_unrelated_third_party_cannot_reapprove(
         self, build_trade, make_trade_details, user1, user2, user3
@@ -131,7 +131,7 @@ class TestReapproval:
             (Updated, user2, {"changes": {"counterparty": "Other Bank"}}),
         )
         with _unauthorized():
-            trade.accept(user3)
+            trade.approve(user3)
 
 
 class TestCancel:

@@ -60,7 +60,7 @@ async def get_trade(trade_id: TradeId, store: StoreDep) -> TradeOut:
 @router.post("/{trade_id}/approve", responses=_WRITE_ERRORS)
 async def approve_trade(trade_id: TradeId, user: UserDep, store: StoreDep) -> TradeOut:
     trade = store.get(trade_id)
-    trade.accept(user)
+    trade.approve(user)
     store.save(trade)
     return TradeOut.from_trade(trade)
 
