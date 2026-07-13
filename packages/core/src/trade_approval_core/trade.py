@@ -27,7 +27,7 @@ from trade_approval_core.events import (
 from trade_approval_core.trade_details import TradeDetails
 from trade_approval_core.transition import (
     ApproverOnly,
-    NotMaker,
+    NotRequester,
     RequesterOnly,
     RequesterOrApprover,
     Transition,
@@ -37,9 +37,9 @@ from trade_approval_core.types import TradeId, UserId
 
 ALLOWED_TRANSITIONS: dict[tuple[State, Action], Transition] = {
     (State.DRAFT,                Action.SUBMIT):          Unrestricted(),
-    (State.PENDING_APPROVAL,     Action.APPROVE):         NotMaker(),
+    (State.PENDING_APPROVAL,     Action.APPROVE):         NotRequester(),
     (State.NEEDS_REAPPROVAL,     Action.APPROVE):         RequesterOnly(),
-    (State.PENDING_APPROVAL,     Action.UPDATE):          NotMaker(),
+    (State.PENDING_APPROVAL,     Action.UPDATE):          NotRequester(),
     (State.PENDING_APPROVAL,     Action.CANCEL):          RequesterOrApprover(),
     (State.NEEDS_REAPPROVAL,     Action.CANCEL):          RequesterOrApprover(),
     (State.APPROVED,             Action.CANCEL):          RequesterOrApprover(),
@@ -60,6 +60,15 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 class Trade:
+    """Event-sourced trade moving through the approval workflow.
+
+    Identity is trusted input: every action takes a caller-supplied UserId and
+    the library authorizes it purely against this trade's own event history
+    (requester/approver). Authenticating that the UserId really is the
+    acting user is the caller's responsibility -- there is no user directory
+    or role system here.
+    """
+
     def __init__(self, clock: Callable[[], datetime] = _utc_now) -> None:
         self.id = TradeId(str(uuid4()))
         self._events: list[Event] = []
@@ -98,13 +107,6 @@ class Trade:
         for e in self._events:
             if isinstance(e, (Approved, Updated)):
                 return e.user_id
-        return None
-
-    @property
-    def maker(self) -> UserId | None:
-        for event in reversed(self._events):
-            if isinstance(event, (Submitted, Updated)):
-                return event.user_id
         return None
 
     @property

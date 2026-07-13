@@ -16,6 +16,9 @@ class Transition(ABC):
     Carries no target state -- ACTION_TO_STATE_MAP (trade.py) is the single
     source of truth for what state an action produces, derived from the event
     type it appends. A Transition's only job is authorize().
+
+    Rules check the UserId against the trade's event history only; the UserId
+    itself is trusted, authenticated input (see Trade's docstring).
     """
 
     @abstractmethod
@@ -38,14 +41,10 @@ class RequesterOnly(Transition):
 
 
 @dataclass(frozen=True)
-class NotMaker(Transition):
-    """Four-eyes gate: the maker of the pending content (the current submitter
-    or, after an update, the updater) cannot approve or amend their own work.
-    """
-
+class NotRequester(Transition):
     def authorize(self, trade: "Trade", user: UserId) -> None:
-        if user == trade.maker:
-            raise UnauthorizedActionError(user, "the maker cannot approve their own changes (four-eyes)")
+        if user == trade.requester:
+            raise UnauthorizedActionError(user, "the requester cannot approve their own submission (four-eyes)")
 
 
 @dataclass(frozen=True)
