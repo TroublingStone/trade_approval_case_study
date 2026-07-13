@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  core-lint:
+    name: core / lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,10 +27,90 @@ jobs:
         run: uv sync
 
       - name: Lint (ruff, PEP8 + line-length 120)
+        run: uv run ruff check packages/core
+
+      - name: Type check
+        run: uv run mypy packages/core/src/trade_approval_core
+
+  core-test:
+    name: core / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest
+
+  api-lint:
+    name: api / lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Build core wheel
+        working-directory: packages/core
+        run: uv build --out-dir dist
+
+      - name: Check uv.lock is up to date
+        run: uv lock --check
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff, PEP8 + line-length 120)
         run: uv run ruff check .
 
       - name: Type check
-        run: uv run mypy packages/core/src/trade_approval_core packages/api/src/trade_approval_api
+        run: uv run mypy src/trade_approval_api
+
+  api-test:
+    name: api / test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      # The API depends on trade-approval-core as a built wheel, so it must
+      # exist before the API is locked/installed. Reproducible builds mean the
+      # freshly built wheel matches the hash pinned in packages/api/uv.lock.
+      - name: Build core wheel
+        working-directory: packages/core
+        run: uv build --out-dir dist
+
+      - name: Install dependencies
+        run: uv sync
 
       - name: Test
         run: uv run pytest

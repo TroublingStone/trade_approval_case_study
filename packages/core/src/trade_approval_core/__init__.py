@@ -23,7 +23,6 @@ from .errors import (
     ValidationError,
 )
 from .events import ActionRecord
-from .sqlite_store import SqliteTradeStore
 from .store import InMemoryTradeStore, TradeStore
 from .trade import Trade
 from .trade_details import TradeDetails
@@ -42,7 +41,6 @@ __all__ = [
     "ActionRecord",
     "TradeStore",
     "InMemoryTradeStore",
-    "SqliteTradeStore",
     "ValidationError",
     "TradeError",
     "TradeNotFoundError",
