@@ -69,49 +69,45 @@ def _decode_details_fields(payload: Mapping[str, Any]) -> dict[str, Any]:
     return {name: _decode_field(name, value) for name, value in payload.items()}
 
 
+# Payload encoding/decoding per event type. Events absent from _PAYLOAD_ENCODERS
+# carry no payload; an action absent from _EVENT_DECODERS is a corrupt log.
+_PAYLOAD_ENCODERS: dict[type[Event], Callable[[Any], dict[str, Any]]] = {
+    Submitted: lambda e: _encode_details(e.details),
+    Updated: lambda e: {name: _encode_field(name, value) for name, value in e.changes.items()},
+    Booked: lambda e: {
+        "strike_rate": _encode_field("strike_rate", e.strike_rate),
+        "confirmation": e.confirmation,
+    },
+}
+_EVENT_DECODERS: dict[str, tuple[Callable[..., Event], Callable[[dict[str, Any]], dict[str, Any]]]] = {
+    Submitted.action: (Submitted, lambda p: {"details": TradeDetails(**_decode_details_fields(p))}),
+    Approved.action: (Approved, lambda p: {}),
+    Updated.action: (Updated, lambda p: {"changes": _decode_details_fields(p)}),
+    Cancelled.action: (Cancelled, lambda p: {}),
+    SentToExecute.action: (SentToExecute, lambda p: {}),
+    Booked.action: (Booked, lambda p: {
+        "strike_rate": _decode_field("strike_rate", p["strike_rate"]),
+        "confirmation": p["confirmation"],
+    }),
+}
+
+
 def _encode_payload(event: Event) -> str:
-    payload: dict[str, Any]
-    if isinstance(event, Submitted):
-        payload = _encode_details(event.details)
-    elif isinstance(event, Updated):
-        payload = {name: _encode_field(name, value) for name, value in event.changes.items()}
-    elif isinstance(event, Booked):
-        payload = {
-            "strike_rate": _encode_field("strike_rate", event.strike_rate),
-            "confirmation": event.confirmation,
-        }
-    else:
-        payload = {}
-    return json.dumps(payload)
+    encoder = _PAYLOAD_ENCODERS.get(type(event))
+    return json.dumps(encoder(event) if encoder is not None else {})
 
 
 def _decode_event(row: sqlite3.Row) -> Event:
-    action = row["action"]
-    seq = row["seq"]
-    user_id = UserId(row["user_id"])
-    timestamp = datetime.fromisoformat(row["timestamp"])
-    payload = json.loads(row["payload"])
-
-    if action == Submitted.action:
-        details = TradeDetails(**_decode_details_fields(payload))
-        return Submitted(seq=seq, user_id=user_id, timestamp=timestamp, details=details)
-    if action == Approved.action:
-        return Approved(seq=seq, user_id=user_id, timestamp=timestamp)
-    if action == Updated.action:
-        return Updated(seq=seq, user_id=user_id, timestamp=timestamp, changes=_decode_details_fields(payload))
-    if action == Cancelled.action:
-        return Cancelled(seq=seq, user_id=user_id, timestamp=timestamp)
-    if action == SentToExecute.action:
-        return SentToExecute(seq=seq, user_id=user_id, timestamp=timestamp)
-    if action == Booked.action:
-        return Booked(
-            seq=seq,
-            user_id=user_id,
-            timestamp=timestamp,
-            strike_rate=_decode_field("strike_rate", payload["strike_rate"]),
-            confirmation=payload["confirmation"],
-        )
-    raise CorruptEventLogError(TradeId(row["trade_id"]))
+    entry = _EVENT_DECODERS.get(row["action"])
+    if entry is None:
+        raise CorruptEventLogError(TradeId(row["trade_id"]))
+    event_type, payload_kwargs = entry
+    return event_type(
+        seq=row["seq"],
+        user_id=UserId(row["user_id"]),
+        timestamp=datetime.fromisoformat(row["timestamp"]),
+        **payload_kwargs(json.loads(row["payload"])),
+    )
 
 
 class SqliteTradeStore:
