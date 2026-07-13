@@ -29,7 +29,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Type check
-        run: uv run mypy packages/core/src/trade_approval_core
+        run: uv run mypy packages/core/src/trade_approval_core packages/api/src/trade_approval_api
 
       - name: Test
-        run: uv run pytest packages/core/tests
+        run: uv run pytest
