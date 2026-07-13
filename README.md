@@ -669,9 +669,9 @@ curl -s -X POST $BASE/trades/$ID/book \
   -H "X-User-Id: user-1" -H "Content-Type: application/json" \
   -d '{"strike_rate": "1.2345", "confirmation": "CONF-1"}'
 
-# Inspect history and a diff
+# Inspect history and a diff (0 = submission, 3 = booking: shows the strike rate folding in)
 curl -s $BASE/trades/$ID/history | jq
-curl -s "$BASE/trades/$ID/diff?from=0&to=1" | jq
+curl -s "$BASE/trades/$ID/diff?from=0&to=3" | jq
 ```
 
 ### Known trade-off: synchronous SQLite on the event loop
